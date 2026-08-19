@@ -1,6 +1,6 @@
 /**
  * AFOP Admin Interactivity Script
- * Handles 1-click block/unblock toggles, toast alerts, courier ratio modal, and API test connections.
+ * Handles 1-click block/unblock toggles, toast alerts, multi-provider tabbed courier modal, bulk block, and CSV import/export.
  */
 
 (function ($) {
@@ -13,6 +13,8 @@
     var AFOP_Admin = {
         currentModalPhone: '',
         currentModalName: '',
+        currentProvider: 'bdcourier',
+        modalProvidersData: {},
 
         init: function () {
             this.bindEvents();
@@ -45,26 +47,24 @@
                         $btn.prop('disabled', false).css('opacity', '1');
                         if (res.success && res.data) {
                             var isBlocked = res.data.is_blocked;
-                            
-                            // Update this button and any other buttons for the same value on page
                             var $matchingBtns = $('.afop-toggle-block-btn[data-value="' + value + '"]');
 
                             if (isBlocked) {
                                 $matchingBtns.removeClass('is-safe').addClass('is-blocked');
                                 if (type === 'phone') {
-                                    $matchingBtns.find('.afop-btn-icon').text('🚫');
+                                    $matchingBtns.find('.afop-btn-icon').html('<i class="fa-solid fa-ban"></i>');
                                     $matchingBtns.find('.afop-btn-text').text('Blocked');
                                 } else {
-                                    $matchingBtns.find('.afop-btn-icon').text('🚫');
+                                    $matchingBtns.find('.afop-btn-icon').html('<i class="fa-solid fa-ban"></i>');
                                     $matchingBtns.find('.afop-btn-text').text('IP Blocked');
                                 }
                             } else {
                                 $matchingBtns.removeClass('is-blocked').addClass('is-safe');
                                 if (type === 'phone') {
-                                    $matchingBtns.find('.afop-btn-icon').text('📞');
+                                    $matchingBtns.find('.afop-btn-icon').html('<i class="fa-solid fa-phone-slash"></i>');
                                     $matchingBtns.find('.afop-btn-text').text('Block Phone');
                                 } else {
-                                    $matchingBtns.find('.afop-btn-icon').text('🌐');
+                                    $matchingBtns.find('.afop-btn-icon').html('<i class="fa-solid fa-globe"></i>');
                                     $matchingBtns.find('.afop-btn-text').text('Block IP');
                                 }
                             }
@@ -93,6 +93,18 @@
                 self.currentModalName = name;
 
                 self.openCourierModal(phone, name, false);
+            });
+
+            // Courier Provider Tabs Switch
+            $(document).on('click', '.afop-courier-tab-btn', function () {
+                var provider = $(this).data('provider');
+                $('.afop-courier-tab-btn').removeClass('active');
+                $(this).addClass('active');
+                self.currentProvider = provider;
+
+                if (self.modalProvidersData && self.modalProvidersData[provider]) {
+                    self.renderCourierModalData(self.modalProvidersData[provider]);
+                }
             });
 
             // Close Courier Modal
@@ -127,12 +139,11 @@
                         $btn.prop('disabled', false);
                         if (res.success && res.data) {
                             if (res.data.is_blocked) {
-                                $btn.text('✅ Unblock This Phone').removeClass('button-danger');
+                                $btn.html('<i class="fa-solid fa-unlock"></i> Unblock This Phone').removeClass('button-danger');
                             } else {
-                                $btn.text('⛔ Block This Phone').addClass('button-danger');
+                                $btn.html('<i class="fa-solid fa-ban"></i> Block This Phone').addClass('button-danger');
                             }
                             self.showToast(res.data.message);
-                            // Update table buttons
                             $('.afop-toggle-block-btn[data-value="' + self.currentModalPhone + '"]').trigger('afop_refresh_state');
                         }
                     }
@@ -145,8 +156,8 @@
                 var $btn = $(this);
                 var $res = $('#afop-test-api-result');
 
-                $btn.prop('disabled', true).text('Testing connection...');
-                $res.html('<span style="color: #64748b;">⏳ Checking API server...</span>');
+                $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Testing connection...');
+                $res.html('<span style="color: #64748b;">Checking API server...</span>');
 
                 $.ajax({
                     url: afop_admin_data.ajax_url,
@@ -156,21 +167,50 @@
                         nonce: afop_admin_data.nonce
                     },
                     success: function (res) {
-                        $btn.prop('disabled', false).text('🔌 Test Courier API Connection');
+                        $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Test Courier API Connection');
                         if (res.success) {
-                            $res.html('<span style="color: #16a34a; font-weight: 600;">✅ ' + res.data.message + '</span>');
+                            $res.html('<span style="color: #16a34a; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> ' + res.data.message + '</span>');
                         } else {
-                            $res.html('<span style="color: #dc2626; font-weight: 600;">❌ ' + res.data.message + '</span>');
+                            $res.html('<span style="color: #dc2626; font-weight: 600;"><i class="fa-solid fa-circle-xmark"></i> ' + res.data.message + '</span>');
                         }
                     },
                     error: function () {
-                        $btn.prop('disabled', false).text('🔌 Test Courier API Connection');
-                        $res.html('<span style="color: #dc2626;">❌ Server connection error.</span>');
+                        $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Test Courier API Connection');
+                        $res.html('<span style="color: #dc2626;"><i class="fa-solid fa-triangle-exclamation"></i> Server connection error.</span>');
                     }
                 });
             });
 
-            // 4. Add Blocklist Form Submit
+            // 4. Blocklist Toolbar Toggle Buttons
+            $('#afop-toggle-single-block').on('click', function () {
+                $('#afop-single-block-panel').slideDown(200);
+                $('#afop-bulk-block-panel').slideUp(200);
+                $('#afop-import-block-panel').slideUp(200);
+            });
+
+            $('#afop-toggle-bulk-block').on('click', function () {
+                $('#afop-bulk-block-panel').slideDown(200);
+                $('#afop-single-block-panel').slideUp(200);
+                $('#afop-import-block-panel').slideUp(200);
+            });
+
+            $('#afop-cancel-bulk-btn').on('click', function () {
+                $('#afop-bulk-block-panel').slideUp(200);
+                $('#afop-single-block-panel').slideDown(200);
+            });
+
+            $('#afop-toggle-import-block').on('click', function () {
+                $('#afop-import-block-panel').slideDown(200);
+                $('#afop-single-block-panel').slideUp(200);
+                $('#afop-bulk-block-panel').slideUp(200);
+            });
+
+            $('#afop-cancel-import-btn').on('click', function () {
+                $('#afop-import-block-panel').slideUp(200);
+                $('#afop-single-block-panel').slideDown(200);
+            });
+
+            // Single Block Submit
             $('#afop-add-block-form').on('submit', function (e) {
                 e.preventDefault();
                 var type = $('#afop-new-block-type').val();
@@ -200,7 +240,114 @@
                 });
             });
 
-            // Delete Block Record
+            // Bulk Block Form Submit
+            $('#afop-bulk-block-form').on('submit', function (e) {
+                e.preventDefault();
+                var type = $('#afop-bulk-block-type').val();
+                var values = $('#afop-bulk-block-values').val();
+                var reason = $('#afop-bulk-block-reason').val();
+
+                if (!values) return;
+
+                var $submitBtn = $(this).find('button[type="submit"]');
+                $submitBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Blocking...');
+
+                $.ajax({
+                    url: afop_admin_data.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'afop_bulk_block_ajax',
+                        nonce: afop_admin_data.nonce,
+                        type: type,
+                        bulk_values: values,
+                        reason: reason
+                    },
+                    success: function (res) {
+                        $submitBtn.prop('disabled', false).html('<i class="fa-solid fa-ban"></i> Bulk Block All');
+                        if (res.success) {
+                            self.showToast(res.data.message);
+                            setTimeout(function () { location.reload(); }, 700);
+                        } else {
+                            self.showToast(res.data.message, 'error');
+                        }
+                    }
+                });
+            });
+
+            // Import CSV Form Submit
+            $('#afop-import-block-form').on('submit', function (e) {
+                e.preventDefault();
+                var fileInput = $('#afop-import-file')[0];
+                if (!fileInput.files.length) return;
+
+                var formData = new FormData();
+                formData.append('action', 'afop_import_blocklist_ajax');
+                formData.append('nonce', afop_admin_data.nonce);
+                formData.append('file', fileInput.files[0]);
+
+                var $status = $('#afop-import-status');
+                $status.html('<span style="color: #64748b;"><i class="fa-solid fa-spinner fa-spin"></i> Importing...</span>');
+
+                $.ajax({
+                    url: afop_admin_data.ajax_url,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (res) {
+                        if (res.success) {
+                            $status.html('<span style="color: #16a34a;"><i class="fa-solid fa-check"></i> ' + res.data.message + '</span>');
+                            self.showToast(res.data.message);
+                            setTimeout(function () { location.reload(); }, 900);
+                        } else {
+                            $status.html('<span style="color: #dc2626;">' + res.data.message + '</span>');
+                        }
+                    }
+                });
+            });
+
+            // Select All Checkbox Handler
+            $('#cb-select-all').on('change', function () {
+                var checked = $(this).is(':checked');
+                $('.afop-block-cb').prop('checked', checked);
+                self.updateBulkDeleteButton();
+            });
+
+            $(document).on('change', '.afop-block-cb', function () {
+                self.updateBulkDeleteButton();
+            });
+
+            // Bulk Delete Selected
+            $('#afop-bulk-delete-btn').on('click', function (e) {
+                e.preventDefault();
+                var selectedIds = [];
+                $('.afop-block-cb:checked').each(function () {
+                    selectedIds.push($(this).val());
+                });
+
+                if (!selectedIds.length) return;
+                if (!confirm(afop_admin_data.i18n.confirm_bulk_del || 'Delete selected records?')) return;
+
+                $.ajax({
+                    url: afop_admin_data.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'afop_bulk_delete_block_ajax',
+                        nonce: afop_admin_data.nonce,
+                        ids: selectedIds
+                    },
+                    success: function (res) {
+                        if (res.success) {
+                            self.showToast(res.data.message);
+                            setTimeout(function () { location.reload(); }, 600);
+                        } else {
+                            self.showToast(res.data.message, 'error');
+                        }
+                    }
+                });
+            });
+
+            // Single Delete Block Record
             $(document).on('click', '.afop-btn-delete-block', function (e) {
                 e.preventDefault();
                 if (!confirm(afop_admin_data.i18n.confirm_delete || 'Are you sure?')) return;
@@ -275,6 +422,15 @@
             });
         },
 
+        updateBulkDeleteButton: function () {
+            var count = $('.afop-block-cb:checked').length;
+            if (count > 0) {
+                $('#afop-bulk-delete-btn').html('<i class="fa-solid fa-trash-can"></i> Delete Selected (' + count + ')').show();
+            } else {
+                $('#afop-bulk-delete-btn').hide();
+            }
+        },
+
         openCourierModal: function (phone, name, forceRefresh) {
             var self = this;
             var $modal = $('#afop-admin-courier-modal');
@@ -282,7 +438,7 @@
             var $content = $('#afop-courier-content');
 
             $('#afop-courier-customer-title').text(name || 'Customer');
-            $('#afop-courier-phone-badge').text('📞 ' + phone);
+            $('#afop-courier-phone-badge').html('<i class="fa-solid fa-phone"></i> ' + phone);
 
             $modal.fadeIn(200);
             $loading.show();
@@ -295,12 +451,26 @@
                     action: 'afop_get_courier_ratio_ajax',
                     nonce: afop_admin_data.nonce,
                     phone: phone,
+                    provider: 'all',
                     force_refresh: forceRefresh ? 'true' : 'false'
                 },
                 success: function (res) {
                     $loading.hide();
                     if (res.success && res.data) {
-                        self.renderCourierModalData(res.data);
+                        if (res.data.multi_provider && res.data.providers) {
+                            self.modalProvidersData = res.data.providers;
+                            var defaultProv = res.data.active_provider || 'bdcourier';
+                            self.currentProvider = defaultProv;
+
+                            $('.afop-courier-tab-btn').removeClass('active');
+                            $('.afop-courier-tab-btn[data-provider="' + defaultProv + '"]').addClass('active');
+
+                            if (self.modalProvidersData[defaultProv]) {
+                                self.renderCourierModalData(self.modalProvidersData[defaultProv]);
+                            }
+                        } else {
+                            self.renderCourierModalData(res.data);
+                        }
                         $content.fadeIn(200);
                     } else {
                         self.showToast(res.data ? res.data.message : 'Error fetching courier data.', 'error');
@@ -320,7 +490,6 @@
         },
 
         renderCourierModalData: function (data) {
-            // Gauge & Percentage
             var rate = parseFloat(data.delivery_rate || 0);
             var returnRate = parseFloat(data.return_rate || 0);
 
@@ -335,12 +504,12 @@
 
             if (data.risk_level === 'high') {
                 $circle.addClass('risk-high');
-                $badge.addClass('high').text('🔴 High Risk / Fraud Alert');
+                $badge.addClass('high').html('<i class="fa-solid fa-triangle-exclamation"></i> High Risk Alert');
             } else if (data.risk_level === 'medium') {
                 $circle.addClass('risk-medium');
-                $badge.addClass('medium').text('🟡 Medium Return Risk');
+                $badge.addClass('medium').html('<i class="fa-solid fa-circle-exclamation"></i> Medium Risk');
             } else {
-                $badge.addClass('safe').text('🟢 Safe Customer');
+                $badge.addClass('safe').html('<i class="fa-solid fa-circle-check"></i> Safe Customer');
             }
 
             // Metrics Counts
@@ -350,7 +519,7 @@
 
             // Demo Notice
             if (data.is_demo && data.demo_notice) {
-                $('#afop-demo-notice-banner').html('ℹ️ ' + data.demo_notice).show();
+                $('#afop-demo-notice-banner').html('<i class="fa-solid fa-circle-info"></i> ' + data.demo_notice).show();
             } else {
                 $('#afop-demo-notice-banner').hide();
             }
@@ -372,15 +541,15 @@
                     $tbody.append(rowHtml);
                 });
             } else {
-                $tbody.append('<tr><td colspan="5" style="text-align: center; color: #64748b;">No courier details available</td></tr>');
+                $tbody.append('<tr><td colspan="5" style="text-align: center; color: #64748b;">No individual breakdown available</td></tr>');
             }
 
             // Update Block Phone button in modal
             var $blockBtn = $('#afop-modal-block-phone-btn');
             if (data.is_blocked) {
-                $blockBtn.text('✅ Unblock This Phone').removeClass('button-danger');
+                $blockBtn.html('<i class="fa-solid fa-unlock"></i> Unblock This Phone').removeClass('button-danger');
             } else {
-                $blockBtn.text('⛔ Block This Phone').addClass('button-danger');
+                $blockBtn.html('<i class="fa-solid fa-ban"></i> Block This Phone').addClass('button-danger');
             }
         },
 
@@ -390,8 +559,8 @@
                 $container = $('<div id="afop-toast-container" class="afop-toast-container"></div>').appendTo('body');
             }
 
-            var icon = (type === 'error') ? '⚠️' : '✅';
-            var $toast = $('<div class="afop-toast">' + icon + ' ' + msg + '</div>');
+            var icon = (type === 'error') ? '<i class="fa-solid fa-circle-xmark"></i>' : '<i class="fa-solid fa-circle-check"></i>';
+            var $toast = $('<div class="afop-toast">' + icon + ' <span>' + msg + '</span></div>');
 
             if (type === 'error') {
                 $toast.css('background', '#dc2626');

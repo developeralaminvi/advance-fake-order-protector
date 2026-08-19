@@ -42,6 +42,17 @@ class AFOP_Admin {
         $incomplete_count = $this->get_incomplete_count();
         $badge = $incomplete_count > 0 ? sprintf(' <span class="update-plugins count-%d"><span class="plugin-count">%d</span></span>', $incomplete_count, $incomplete_count) : '';
 
+        // 1. Submenu directly under WooCommerce menu (right below Orders)
+        add_submenu_page(
+            'woocommerce',
+            __('Incomplete Orders', 'advance-fake-order-protector'),
+            __('Incomplete Orders', 'advance-fake-order-protector') . $badge,
+            'manage_woocommerce',
+            'afop-incomplete-orders',
+            array($this, 'render_incomplete_orders_page')
+        );
+
+        // 2. Main Plugin Top-Level Menu
         add_menu_page(
             __('Fake Order Protector', 'advance-fake-order-protector'),
             __('Fake Order Protector', 'advance-fake-order-protector'),
@@ -106,10 +117,18 @@ class AFOP_Admin {
             return;
         }
 
+        // FontAwesome 6
+        wp_enqueue_style(
+            'afop-fontawesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+            array(),
+            '6.5.1'
+        );
+
         wp_enqueue_style(
             'afop-admin-css',
             AFOP_PLUGIN_URL . 'assets/css/afop-admin.css',
-            array(),
+            array('afop-fontawesome'),
             AFOP_VERSION
         );
 
@@ -129,14 +148,12 @@ class AFOP_Admin {
                 'block'            => __('Block', 'advance-fake-order-protector'),
                 'unblock'          => __('Unblock', 'advance-fake-order-protector'),
                 'confirm_delete'   => __('আপনি কি নিশ্চিত এটি ডিলিট করতে চান?', 'advance-fake-order-protector'),
+                'confirm_bulk_del' => __('নির্বাচিত রেকর্ডগুলো ডিলিট করতে চান?', 'advance-fake-order-protector'),
                 'confirm_recovered'=> __('আপনি কি এটিকে Recovered হিসেবে মার্ক করতে চান?', 'advance-fake-order-protector')
             )
         ));
     }
 
-    /**
-     * Add Custom Column to WooCommerce Orders Table
-     */
     /**
      * Add Custom Columns to WooCommerce Orders Table
      */
@@ -145,15 +162,15 @@ class AFOP_Admin {
         foreach ($columns as $key => $title) {
             $new_columns[$key] = $title;
             if ($key === 'order_number' || $key === 'order_status') {
-                $new_columns['afop_order_products']   = __('📦 Products', 'advance-fake-order-protector');
-                $new_columns['afop_security_actions'] = __('🛡️ Fraud & Security', 'advance-fake-order-protector');
+                $new_columns['afop_order_products']   = '<i class="fa-solid fa-box-open"></i> ' . __('Products', 'advance-fake-order-protector');
+                $new_columns['afop_security_actions'] = '<i class="fa-solid fa-shield-halved"></i> ' . __('Security & Courier', 'advance-fake-order-protector');
             }
         }
         if (!isset($new_columns['afop_order_products'])) {
-            $new_columns['afop_order_products'] = __('📦 Products', 'advance-fake-order-protector');
+            $new_columns['afop_order_products'] = '<i class="fa-solid fa-box-open"></i> ' . __('Products', 'advance-fake-order-protector');
         }
         if (!isset($new_columns['afop_security_actions'])) {
-            $new_columns['afop_security_actions'] = __('🛡️ Fraud & Security', 'advance-fake-order-protector');
+            $new_columns['afop_security_actions'] = '<i class="fa-solid fa-shield-halved"></i> ' . __('Security & Courier', 'advance-fake-order-protector');
         }
         return $new_columns;
     }
@@ -248,7 +265,7 @@ class AFOP_Admin {
     }
 
     /**
-     * Render the Security Action Buttons in Orders List
+     * Render the Security Action Buttons & Phone in Orders List
      */
     public function render_security_action_buttons($order) {
         $phone = $order->get_billing_phone();
@@ -261,13 +278,20 @@ class AFOP_Admin {
         ?>
         <div class="afop-order-actions-wrap" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
             <?php if (!empty($normalized_phone)): ?>
+                <!-- Customer Phone Display with Call Icon -->
+                <div class="afop-phone-display-row">
+                    <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
+                    </a>
+                </div>
+
                 <!-- Phone Block Toggle -->
                 <button type="button" 
                         class="afop-btn-action afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
                         data-type="phone" 
                         data-value="<?php echo esc_attr($normalized_phone); ?>"
                         title="<?php echo $phone_blocked ? esc_attr__('Click to Unblock Phone', 'advance-fake-order-protector') : esc_attr__('Click to Block Phone', 'advance-fake-order-protector'); ?>">
-                    <span class="afop-btn-icon"><?php echo $phone_blocked ? '🚫' : '📞'; ?></span>
+                    <span class="afop-btn-icon"><i class="fa-solid <?php echo $phone_blocked ? 'fa-ban' : 'fa-phone-slash'; ?>"></i></span>
                     <span class="afop-btn-text"><?php echo $phone_blocked ? esc_html__('Blocked', 'advance-fake-order-protector') : esc_html__('Block Phone', 'advance-fake-order-protector'); ?></span>
                 </button>
 
@@ -277,7 +301,7 @@ class AFOP_Admin {
                         data-phone="<?php echo esc_attr($normalized_phone); ?>"
                         data-name="<?php echo esc_attr($customer_name); ?>"
                         title="<?php echo esc_attr__('Check Courier Delivery Ratio', 'advance-fake-order-protector'); ?>">
-                    <span class="afop-btn-icon">📊</span>
+                    <span class="afop-btn-icon"><i class="fa-solid fa-chart-pie"></i></span>
                     <span class="afop-btn-text"><?php esc_html_e('Courier Ratio', 'advance-fake-order-protector'); ?></span>
                 </button>
             <?php endif; ?>
@@ -289,7 +313,7 @@ class AFOP_Admin {
                         data-type="ip" 
                         data-value="<?php echo esc_attr($client_ip); ?>"
                         title="<?php echo $ip_blocked ? esc_attr__('Click to Unblock IP', 'advance-fake-order-protector') : esc_attr__('Click to Block IP', 'advance-fake-order-protector'); ?>">
-                    <span class="afop-btn-icon"><?php echo $ip_blocked ? '🚫' : '🌐'; ?></span>
+                    <span class="afop-btn-icon"><i class="fa-solid <?php echo $ip_blocked ? 'fa-ban' : 'fa-globe'; ?>"></i></span>
                     <span class="afop-btn-text"><?php echo $ip_blocked ? esc_html__('IP Blocked', 'advance-fake-order-protector') : esc_html__('Block IP', 'advance-fake-order-protector'); ?></span>
                 </button>
             <?php endif; ?>
@@ -312,7 +336,7 @@ class AFOP_Admin {
         foreach ($screens as $s) {
             add_meta_box(
                 'afop_order_security_meta_box',
-                __('🛡️ Fake Order Protector & Courier Ratio', 'advance-fake-order-protector'),
+                __('Fake Order Protector & Courier Ratio', 'advance-fake-order-protector'),
                 array($this, 'render_order_meta_box_content'),
                 $s,
                 'side',
@@ -340,25 +364,25 @@ class AFOP_Admin {
         ?>
         <div class="afop-meta-box-wrap">
             <div class="afop-meta-row">
-                <span class="afop-meta-label"><strong>📞 Phone:</strong> <?php echo esc_html($phone ?: 'N/A'); ?></span>
+                <span class="afop-meta-label"><i class="fa-solid fa-phone"></i> <strong>Phone:</strong> <?php echo esc_html($phone ?: 'N/A'); ?></span>
                 <?php if (!empty($normalized_phone)): ?>
                     <button type="button" 
                             class="afop-btn-action afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
                             data-type="phone" 
                             data-value="<?php echo esc_attr($normalized_phone); ?>">
-                        <span><?php echo $phone_blocked ? '🚫 Unblock Phone' : '⛔ Block Phone'; ?></span>
+                        <span><i class="fa-solid <?php echo $phone_blocked ? 'fa-unlock' : 'fa-ban'; ?>"></i> <?php echo $phone_blocked ? 'Unblock Phone' : 'Block Phone'; ?></span>
                     </button>
                 <?php endif; ?>
             </div>
 
             <div class="afop-meta-row">
-                <span class="afop-meta-label"><strong>🌐 IP Address:</strong> <?php echo esc_html($client_ip ?: 'N/A'); ?></span>
+                <span class="afop-meta-label"><i class="fa-solid fa-globe"></i> <strong>IP Address:</strong> <?php echo esc_html($client_ip ?: 'N/A'); ?></span>
                 <?php if (!empty($client_ip)): ?>
                     <button type="button" 
                             class="afop-btn-action afop-toggle-block-btn <?php echo $ip_blocked ? 'is-blocked' : 'is-safe'; ?>" 
                             data-type="ip" 
                             data-value="<?php echo esc_attr($client_ip); ?>">
-                        <span><?php echo $ip_blocked ? '🚫 Unblock IP' : '⛔ Block IP'; ?></span>
+                        <span><i class="fa-solid <?php echo $ip_blocked ? 'fa-unlock' : 'fa-ban'; ?>"></i> <?php echo $ip_blocked ? 'Unblock IP' : 'Block IP'; ?></span>
                     </button>
                 <?php endif; ?>
             </div>
@@ -370,7 +394,7 @@ class AFOP_Admin {
                             style="width: 100%; text-align: center;"
                             data-phone="<?php echo esc_attr($normalized_phone); ?>"
                             data-name="<?php echo esc_attr($customer_name); ?>">
-                        📊 <?php esc_html_e('Check Courier Delivery Ratio', 'advance-fake-order-protector'); ?>
+                        <i class="fa-solid fa-chart-pie"></i> <?php esc_html_e('Check Courier Delivery Ratio', 'advance-fake-order-protector'); ?>
                     </button>
                 </div>
             <?php endif; ?>
@@ -379,7 +403,7 @@ class AFOP_Admin {
     }
 
     /**
-     * Render Courier Ratio Modal for Admin
+     * Render Courier Ratio Modal for Admin with 3 Provider Tabs
      */
     public function render_admin_courier_modal() {
         ?>
@@ -387,11 +411,24 @@ class AFOP_Admin {
             <div class="afop-admin-modal-box">
                 <div class="afop-admin-modal-header">
                     <div class="afop-modal-header-left">
-                        <span class="afop-modal-badge">📊 Delivery Intelligence</span>
+                        <span class="afop-modal-badge"><i class="fa-solid fa-chart-line"></i> Delivery Intelligence</span>
                         <h2 id="afop-courier-customer-title"><?php esc_html_e('Courier Delivery History', 'advance-fake-order-protector'); ?></h2>
                         <span id="afop-courier-phone-badge" class="afop-phone-pill"></span>
                     </div>
                     <button type="button" class="afop-admin-modal-close" id="afop-close-courier-modal">&times;</button>
+                </div>
+
+                <!-- 3 Provider Tabs -->
+                <div class="afop-courier-provider-tabs">
+                    <button type="button" class="afop-courier-tab-btn active" data-provider="bdcourier">
+                        <i class="fa-solid fa-truck-fast"></i> BD Courier
+                    </button>
+                    <button type="button" class="afop-courier-tab-btn" data-provider="steadfast">
+                        <i class="fa-solid fa-bolt"></i> Steadfast
+                    </button>
+                    <button type="button" class="afop-courier-tab-btn" data-provider="fraudbd">
+                        <i class="fa-solid fa-shield-halved"></i> FraudBD
+                    </button>
                 </div>
 
                 <div class="afop-admin-modal-body">
@@ -417,7 +454,9 @@ class AFOP_Admin {
                                     </div>
                                 </div>
                                 <div class="afop-risk-badge-wrap">
-                                    <span id="afop-risk-badge" class="afop-risk-badge safe">🟢 Safe Customer</span>
+                                    <span id="afop-risk-badge" class="afop-risk-badge safe">
+                                        <i class="fa-solid fa-circle-check"></i> Safe Customer
+                                    </span>
                                 </div>
                             </div>
 
@@ -425,26 +464,26 @@ class AFOP_Admin {
                             <div class="afop-card afop-metrics-card">
                                 <div class="afop-metric-item success">
                                     <span class="afop-metric-val" id="afop-delivered-count">0</span>
-                                    <span class="afop-metric-lbl">✅ Delivered Parcels</span>
+                                    <span class="afop-metric-lbl"><i class="fa-solid fa-check"></i> Delivered Parcels</span>
                                 </div>
                                 <div class="afop-metric-item danger">
                                     <span class="afop-metric-val" id="afop-returned-count">0</span>
-                                    <span class="afop-metric-lbl">❌ Returned / Cancelled</span>
+                                    <span class="afop-metric-lbl"><i class="fa-solid fa-xmark"></i> Returned / Cancelled</span>
                                 </div>
                                 <div class="afop-metric-item total">
                                     <span class="afop-metric-val" id="afop-total-count">0</span>
-                                    <span class="afop-metric-lbl">📦 Total Parcels</span>
+                                    <span class="afop-metric-lbl"><i class="fa-solid fa-box"></i> Total Parcels</span>
                                 </div>
                                 <div class="afop-metric-item return-rate">
                                     <span class="afop-metric-val" id="afop-return-rate-text">0%</span>
-                                    <span class="afop-metric-lbl">⚠️ Return Rate</span>
+                                    <span class="afop-metric-lbl"><i class="fa-solid fa-triangle-exclamation"></i> Return Rate</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Courier Breakdown Section -->
                         <div class="afop-breakdown-section">
-                            <h4><?php esc_html_e('Courier Breakdown', 'advance-fake-order-protector'); ?></h4>
+                            <h4><i class="fa-solid fa-list-check"></i> <?php esc_html_e('Courier Breakdown', 'advance-fake-order-protector'); ?></h4>
                             <table class="afop-courier-table">
                                 <thead>
                                     <tr>
@@ -465,10 +504,10 @@ class AFOP_Admin {
 
                 <div class="afop-admin-modal-footer">
                     <div class="afop-modal-footer-left">
-                        <button type="button" class="button" id="afop-refresh-courier-btn">🔄 <?php esc_html_e('Force Refresh Data', 'advance-fake-order-protector'); ?></button>
+                        <button type="button" class="button" id="afop-refresh-courier-btn"><i class="fa-solid fa-rotate"></i> <?php esc_html_e('Force Refresh', 'advance-fake-order-protector'); ?></button>
                     </div>
                     <div class="afop-modal-footer-right">
-                        <button type="button" class="button button-danger" id="afop-modal-block-phone-btn">⛔ <?php esc_html_e('Block This Phone', 'advance-fake-order-protector'); ?></button>
+                        <button type="button" class="button button-danger" id="afop-modal-block-phone-btn"><i class="fa-solid fa-ban"></i> <?php esc_html_e('Block This Phone', 'advance-fake-order-protector'); ?></button>
                         <button type="button" class="button" id="afop-modal-close-footer-btn"><?php esc_html_e('Close', 'advance-fake-order-protector'); ?></button>
                     </div>
                 </div>
@@ -547,16 +586,16 @@ class AFOP_Admin {
         <div class="wrap afop-admin-wrap">
             <div class="afop-header-banner">
                 <div class="afop-header-content">
-                    <h1>🛡️ Advance Fake Order Protector & Courier Checker</h1>
-                    <p>WooCommerce Fake Order Defense, Bangladeshi Phone Verification, Repeat Order Blocker & Courier Delivery Ratio Analysis</p>
+                    <h1><i class="fa-solid fa-shield-halved"></i> Advance Fake Order Protector & Courier Checker</h1>
+                    <p>WooCommerce Fake Order Defense, Bangladeshi Phone Verification, Repeat Order Blocker & Multi-Courier Ratio Analysis</p>
                 </div>
             </div>
 
             <h2 class="nav-tab-wrapper">
-                <a href="?page=afop-settings&tab=general" class="nav-tab <?php echo $active_tab === 'general' ? 'nav-tab-active' : ''; ?>">⚙️ General & WhatsApp</a>
-                <a href="?page=afop-settings&tab=validation" class="nav-tab <?php echo $active_tab === 'validation' ? 'nav-tab-active' : ''; ?>">📱 BD Phone Validator</a>
-                <a href="?page=afop-settings&tab=repeat" class="nav-tab <?php echo $active_tab === 'repeat' ? 'nav-tab-active' : ''; ?>">🔁 Repeat Order Protection</a>
-                <a href="?page=afop-settings&tab=courier" class="nav-tab <?php echo $active_tab === 'courier' ? 'nav-tab-active' : ''; ?>">🚚 Courier API Settings</a>
+                <a href="?page=afop-settings&tab=general" class="nav-tab <?php echo $active_tab === 'general' ? 'nav-tab-active' : ''; ?>"><i class="fa-solid fa-gear"></i> General & WhatsApp</a>
+                <a href="?page=afop-settings&tab=validation" class="nav-tab <?php echo $active_tab === 'validation' ? 'nav-tab-active' : ''; ?>"><i class="fa-solid fa-mobile-screen"></i> BD Phone Validator</a>
+                <a href="?page=afop-settings&tab=repeat" class="nav-tab <?php echo $active_tab === 'repeat' ? 'nav-tab-active' : ''; ?>"><i class="fa-solid fa-repeat"></i> Repeat Order Protection</a>
+                <a href="?page=afop-settings&tab=courier" class="nav-tab <?php echo $active_tab === 'courier' ? 'nav-tab-active' : ''; ?>"><i class="fa-solid fa-truck-fast"></i> Courier API Settings</a>
             </h2>
 
             <form method="post" action="">
@@ -564,7 +603,7 @@ class AFOP_Admin {
 
                 <?php if ($active_tab === 'general'): ?>
                     <div class="afop-settings-section">
-                        <h3>General & WhatsApp Support Configuration</h3>
+                        <h3><i class="fa-brands fa-whatsapp"></i> General & WhatsApp Support Configuration</h3>
                         <table class="form-table">
                             <tr>
                                 <th scope="row">WhatsApp Support Number</th>
@@ -621,7 +660,7 @@ class AFOP_Admin {
 
                 <?php elseif ($active_tab === 'validation'): ?>
                     <div class="afop-settings-section">
-                        <h3>Bangladeshi Mobile Number Validation Rules</h3>
+                        <h3><i class="fa-solid fa-mobile-screen"></i> Bangladeshi Mobile Number Validation Rules</h3>
                         <table class="form-table">
                             <tr>
                                 <th scope="row">Enable BD Phone Validation</th>
@@ -658,7 +697,7 @@ class AFOP_Admin {
 
                 <?php elseif ($active_tab === 'repeat'): ?>
                     <div class="afop-settings-section">
-                        <h3>Repeat / Duplicate Order Protection</h3>
+                        <h3><i class="fa-solid fa-repeat"></i> Repeat / Duplicate Order Protection</h3>
                         <table class="form-table">
                             <tr>
                                 <th scope="row">Enable Repeat Order Protection</th>
@@ -706,10 +745,10 @@ class AFOP_Admin {
 
                 <?php elseif ($active_tab === 'courier'): ?>
                     <div class="afop-settings-section">
-                        <h3>Courier API & Fraud Ratio Configuration</h3>
+                        <h3><i class="fa-solid fa-truck-fast"></i> Courier API & Fraud Ratio Configuration</h3>
                         <table class="form-table">
                             <tr>
-                                <th scope="row">Primary Courier API Provider</th>
+                                <th scope="row">Primary Default Provider</th>
                                 <td>
                                     <select name="afop_courier_provider" id="afop_courier_provider">
                                         <option value="bdcourier" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'bdcourier'); ?>>BD Courier API (api.bdcourier.com)</option>
@@ -753,7 +792,7 @@ class AFOP_Admin {
                             <tr>
                                 <th scope="row">Test Connection</th>
                                 <td>
-                                    <button type="button" class="button" id="afop-test-api-btn">🔌 Test Courier API Connection</button>
+                                    <button type="button" class="button" id="afop-test-api-btn"><i class="fa-solid fa-plug"></i> Test Courier API Connection</button>
                                     <span id="afop-test-api-result" style="margin-left: 10px;"></span>
                                 </td>
                             </tr>
@@ -799,7 +838,7 @@ class AFOP_Admin {
         <div class="wrap afop-admin-wrap">
             <div class="afop-header-banner">
                 <div class="afop-header-content">
-                    <h1>🛒 Real-Time Incomplete Orders & Abandoned Leads</h1>
+                    <h1><i class="fa-solid fa-cart-arrow-down"></i> Real-Time Incomplete Orders & Abandoned Leads</h1>
                     <p>কাস্টমার চেকআউটে ১১ ডিজিটের ফোন নম্বর টাইপ করার সাথে সাথে স্বয়ংক্রিয়ভাবে সংগৃহীত লিড সমূহ।</p>
                 </div>
             </div>
@@ -808,19 +847,19 @@ class AFOP_Admin {
             <div class="afop-stats-row">
                 <div class="afop-stat-card warning">
                     <span class="afop-stat-num"><?php echo intval($total_leads); ?></span>
-                    <span class="afop-stat-label">🛒 Pending Incomplete</span>
+                    <span class="afop-stat-label"><i class="fa-solid fa-cart-shopping"></i> Pending Incomplete</span>
                 </div>
                 <div class="afop-stat-card danger">
                     <span class="afop-stat-num"><?php echo wc_price($lost_revenue); ?></span>
-                    <span class="afop-stat-label">💰 Potential Lost Value</span>
+                    <span class="afop-stat-label"><i class="fa-solid fa-sack-dollar"></i> Potential Lost Value</span>
                 </div>
                 <div class="afop-stat-card success">
                     <span class="afop-stat-num"><?php echo intval($total_converted); ?></span>
-                    <span class="afop-stat-label">✅ Converted to Orders</span>
+                    <span class="afop-stat-label"><i class="fa-solid fa-circle-check"></i> Converted to Orders</span>
                 </div>
                 <div class="afop-stat-card info">
                     <span class="afop-stat-num"><?php echo intval($total_recovered); ?></span>
-                    <span class="afop-stat-label">🎉 Manually Recovered</span>
+                    <span class="afop-stat-label"><i class="fa-solid fa-hand-holding-dollar"></i> Manually Recovered</span>
                 </div>
             </div>
 
@@ -837,7 +876,7 @@ class AFOP_Admin {
                     <input type="hidden" name="page" value="afop-incomplete-orders">
                     <input type="hidden" name="status_filter" value="<?php echo esc_attr($filter_status); ?>">
                     <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="Search by phone, name...">
-                    <button type="submit" class="button">Search</button>
+                    <button type="submit" class="button"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
                 </form>
             </div>
 
@@ -873,13 +912,13 @@ class AFOP_Admin {
                             <tr id="afop-incomplete-row-<?php echo esc_attr($item->id); ?>">
                                 <td>
                                     <strong><?php echo esc_html($item->name ?: 'Unknown Name'); ?></strong><br>
-                                    <span class="afop-phone-tag">📞 <?php echo esc_html($item->phone); ?></span><br>
+                                    <span class="afop-phone-tag"><i class="fa-solid fa-phone"></i> <?php echo esc_html($item->phone); ?></span><br>
                                     <?php if (!empty($item->email)): ?>
-                                        <small>✉️ <?php echo esc_html($item->email); ?></small><br>
+                                        <small><i class="fa-solid fa-envelope"></i> <?php echo esc_html($item->email); ?></small><br>
                                     <?php endif; ?>
                                     <div class="afop-quick-contact" style="margin-top: 6px;">
-                                        <a href="tel:<?php echo esc_attr($item->phone); ?>" class="button button-small">📞 Call</a>
-                                        <a href="https://wa.me/<?php echo esc_attr($wa_num); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="button button-small afop-btn-whatsapp">💬 WhatsApp</a>
+                                        <a href="tel:<?php echo esc_attr($item->phone); ?>" class="button button-small"><i class="fa-solid fa-phone"></i> Call</a>
+                                        <a href="https://wa.me/<?php echo esc_attr($wa_num); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="button button-small afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
                                     </div>
                                 </td>
                                 <td>
@@ -915,11 +954,11 @@ class AFOP_Admin {
                                     </span>
                                 </td>
                                 <td>
-                                    <button type="button" class="button button-small afop-check-courier-btn" data-phone="<?php echo esc_attr($item->phone); ?>" data-name="<?php echo esc_attr($item->name); ?>">📊 Ratio</button>
+                                    <button type="button" class="button button-small afop-check-courier-btn" data-phone="<?php echo esc_attr($item->phone); ?>" data-name="<?php echo esc_attr($item->name); ?>"><i class="fa-solid fa-chart-pie"></i> Ratio</button>
                                     <?php if ($item->status === 'incomplete'): ?>
-                                        <button type="button" class="button button-small afop-btn-mark-recovered" data-id="<?php echo esc_attr($item->id); ?>" title="Mark Recovered">✅</button>
+                                        <button type="button" class="button button-small afop-btn-mark-recovered" data-id="<?php echo esc_attr($item->id); ?>" title="Mark Recovered"><i class="fa-solid fa-check"></i></button>
                                     <?php endif; ?>
-                                    <button type="button" class="button button-small button-link-delete afop-btn-delete-lead" data-id="<?php echo esc_attr($item->id); ?>" title="Delete">🗑️</button>
+                                    <button type="button" class="button button-small button-link-delete afop-btn-delete-lead" data-id="<?php echo esc_attr($item->id); ?>" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -931,7 +970,7 @@ class AFOP_Admin {
     }
 
     /**
-     * Render Blocklist Manager Page
+     * Render Blocklist Manager Page with Bulk Block, Export & Import
      */
     public function render_blocklist_page() {
         global $wpdb;
@@ -948,31 +987,83 @@ class AFOP_Admin {
             $where .= $wpdb->prepare(" AND (value LIKE %s OR reason LIKE %s)", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%');
         }
 
-        $items = $wpdb->get_results("SELECT * FROM {$table} {$where} ORDER BY updated_at DESC LIMIT 100");
+        $items = $wpdb->get_results("SELECT * FROM {$table} {$where} ORDER BY updated_at DESC LIMIT 150");
+
+        $export_url = wp_nonce_url(admin_url('admin-post.php?action=afop_export_blocklist_csv'), 'afop_export_blocklist_nonce');
         ?>
         <div class="wrap afop-admin-wrap">
             <div class="afop-header-banner">
                 <div class="afop-header-content">
-                    <h1>⛔ Blocklist Manager (IP & Phone Blacklist)</h1>
-                    <p>Manage all blocked phone numbers and IP addresses. Blocked entries cannot complete checkout.</p>
+                    <h1><i class="fa-solid fa-ban"></i> Blocklist Manager (IP & Phone Blacklist)</h1>
+                    <p>Manage blocked phone numbers and IP addresses. Blocked entries cannot complete checkout.</p>
                 </div>
             </div>
 
-            <!-- Add New Block Card -->
-            <div class="afop-card-panel" style="margin-top: 15px;">
-                <h3>➕ Add New Phone / IP to Blocklist</h3>
+            <!-- Action Toolbar: Bulk Block, Export CSV, Import CSV -->
+            <div class="afop-toolbar-row">
+                <div class="afop-toolbar-left">
+                    <button type="button" class="button button-primary" id="afop-toggle-single-block"><i class="fa-solid fa-plus"></i> Add Single</button>
+                    <button type="button" class="button" id="afop-toggle-bulk-block"><i class="fa-solid fa-layer-group"></i> Bulk Block (Paste Multiple)</button>
+                    <button type="button" class="button" id="afop-toggle-import-block"><i class="fa-solid fa-file-import"></i> Import CSV/TXT</button>
+                </div>
+                <div class="afop-toolbar-right">
+                    <a href="<?php echo esc_url($export_url); ?>" class="button button-secondary"><i class="fa-solid fa-file-export"></i> Export to CSV</a>
+                    <button type="button" class="button button-link-delete" id="afop-bulk-delete-btn" style="display:none;"><i class="fa-solid fa-trash-can"></i> Delete Selected</button>
+                </div>
+            </div>
+
+            <!-- Single Add Panel -->
+            <div id="afop-single-block-panel" class="afop-card-panel" style="margin-top: 15px;">
+                <h3><i class="fa-solid fa-plus-circle"></i> Add Single Phone or IP to Blocklist</h3>
                 <form id="afop-add-block-form" class="afop-inline-form">
                     <select id="afop-new-block-type">
-                        <option value="phone">📞 Phone Number</option>
-                        <option value="ip">🌐 IP Address</option>
+                        <option value="phone">Phone Number</option>
+                        <option value="ip">IP Address</option>
                     </select>
                     <input type="text" id="afop-new-block-value" placeholder="e.g. 017XXXXXXXX or 103.xxx.xxx.xxx" required class="regular-text">
-                    <input type="text" id="afop-new-block-reason" placeholder="Reason (e.g. Fake order / Non-responsive)" class="regular-text">
-                    <button type="submit" class="button button-primary">🚫 Add to Blocklist</button>
+                    <input type="text" id="afop-new-block-reason" placeholder="Reason (e.g. Fake order / Return fraud)" class="regular-text">
+                    <button type="submit" class="button button-primary"><i class="fa-solid fa-ban"></i> Block Now</button>
                 </form>
             </div>
 
-            <!-- List Table -->
+            <!-- Bulk Block Panel (Collapsible) -->
+            <div id="afop-bulk-block-panel" class="afop-card-panel" style="margin-top: 15px; display: none;">
+                <h3><i class="fa-solid fa-layer-group"></i> Bulk Add Phone Numbers or IP Addresses</h3>
+                <p class="description">একসাথে অনেকগুলো ফোন নম্বর বা আইপি পেস্ট করুন (প্রতি লাইনে ১টি করে অথবা কমা দিয়ে পৃথক করুন)।</p>
+                <form id="afop-bulk-block-form">
+                    <div style="margin-bottom: 10px;">
+                        <label><strong>Type:</strong></label>
+                        <select id="afop-bulk-block-type">
+                            <option value="phone">Phone Numbers</option>
+                            <option value="ip">IP Addresses</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <textarea id="afop-bulk-block-values" rows="6" class="large-text" placeholder="01711111111&#10;01822222222&#10;01933333333" required></textarea>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="afop-bulk-block-reason" placeholder="Reason for bulk block (Optional)" class="large-text">
+                    </div>
+                    <button type="submit" class="button button-primary"><i class="fa-solid fa-ban"></i> Bulk Block All</button>
+                    <button type="button" class="button" id="afop-cancel-bulk-btn">Cancel</button>
+                </form>
+            </div>
+
+            <!-- Import CSV Panel (Collapsible) -->
+            <div id="afop-import-block-panel" class="afop-card-panel" style="margin-top: 15px; display: none;">
+                <h3><i class="fa-solid fa-file-import"></i> Import Blocklist from CSV or Text File</h3>
+                <p class="description">ফাইল আপলোড করে এক ক্লিকে ব্লকলিস্ট ইমপোর্ট করুন। ফরম্যাট: <code>Type,Value,Reason</code> অথবা শুধুমাত্র ফোন নম্বর/আইপি এর তালিকা।</p>
+                <form id="afop-import-block-form" enctype="multipart/form-data">
+                    <div style="margin-bottom: 12px;">
+                        <input type="file" id="afop-import-file" accept=".csv,.txt" required>
+                    </div>
+                    <button type="submit" class="button button-primary"><i class="fa-solid fa-upload"></i> Start Import</button>
+                    <button type="button" class="button" id="afop-cancel-import-btn">Cancel</button>
+                    <span id="afop-import-status" style="margin-left: 10px;"></span>
+                </form>
+            </div>
+
+            <!-- Filter & Search Bar -->
             <div class="tablenav top" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
                 <ul class="subsubsub" style="margin: 0;">
                     <li><a href="?page=afop-blocklist&type_filter=all" class="<?php echo $type_filter === 'all' ? 'current' : ''; ?>">All Records</a> |</li>
@@ -984,32 +1075,39 @@ class AFOP_Admin {
                     <input type="hidden" name="page" value="afop-blocklist">
                     <input type="hidden" name="type_filter" value="<?php echo esc_attr($type_filter); ?>">
                     <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="Search blocklist...">
-                    <button type="submit" class="button">Search</button>
+                    <button type="submit" class="button"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
                 </form>
             </div>
 
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
+                        <td id="cb" class="manage-column column-cb check-column">
+                            <input id="cb-select-all" type="checkbox">
+                        </td>
                         <th style="width: 100px;">Type</th>
                         <th>Value (Phone / IP)</th>
                         <th>Reason</th>
                         <th style="width: 120px;">Status</th>
                         <th style="width: 140px;">Date Added</th>
-                        <th style="width: 120px;">Actions</th>
+                        <th style="width: 130px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($items)): ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding: 25px;"><?php esc_html_e('ব্লকলিস্টে কোনো তথ্য নেই।', 'advance-fake-order-protector'); ?></td>
+                            <td colspan="7" style="text-align:center; padding: 25px;"><?php esc_html_e('ব্লকলিস্টে কোনো তথ্য নেই।', 'advance-fake-order-protector'); ?></td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($items as $item): ?>
                             <tr id="afop-block-row-<?php echo esc_attr($item->id); ?>">
+                                <th scope="row" class="check-column">
+                                    <input type="checkbox" class="afop-block-cb" value="<?php echo esc_attr($item->id); ?>">
+                                </th>
                                 <td>
                                     <span class="afop-type-pill pill-<?php echo esc_attr($item->type); ?>">
-                                        <?php echo ($item->type === 'phone') ? '📞 Phone' : '🌐 IP'; ?>
+                                        <i class="fa-solid <?php echo ($item->type === 'phone') ? 'fa-phone' : 'fa-globe'; ?>"></i>
+                                        <?php echo ($item->type === 'phone') ? 'Phone' : 'IP'; ?>
                                     </span>
                                 </td>
                                 <td><strong><code><?php echo esc_html($item->value); ?></code></strong></td>
@@ -1025,9 +1123,10 @@ class AFOP_Admin {
                                             class="button button-small afop-toggle-block-btn <?php echo ($item->status === 'blocked') ? 'is-blocked' : 'is-safe'; ?>" 
                                             data-type="<?php echo esc_attr($item->type); ?>" 
                                             data-value="<?php echo esc_attr($item->value); ?>">
+                                        <i class="fa-solid <?php echo ($item->status === 'blocked') ? 'fa-unlock' : 'fa-ban'; ?>"></i>
                                         <?php echo ($item->status === 'blocked') ? 'Unblock' : 'Block'; ?>
                                     </button>
-                                    <button type="button" class="button button-small button-link-delete afop-btn-delete-block" data-id="<?php echo esc_attr($item->id); ?>">🗑️</button>
+                                    <button type="button" class="button button-small button-link-delete afop-btn-delete-block" data-id="<?php echo esc_attr($item->id); ?>"><i class="fa-solid fa-trash-can"></i></button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

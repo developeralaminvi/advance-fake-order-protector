@@ -233,11 +233,11 @@
             var title = afop_data.i18n.invalid_phone_title || 'ভুল মোবাইল নম্বর!';
             var msg = afop_data.i18n.invalid_phone_msg || 'আপনার নম্বরটি ভুল। দয়া করে সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর লিখুন।';
 
-            var actionsHtml = '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-modal-dismiss">' + (afop_data.i18n.ok_btn || 'ঠিক আছে') + '</button>';
+            var actionsHtml = '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-modal-dismiss"><i class="fa-solid fa-check"></i> ' + (afop_data.i18n.ok_btn || 'ঠিক আছে') + '</button>';
 
             this.showModal({
                 iconClass: 'afop-icon-danger',
-                icon: '📱',
+                icon: '<i class="fa-solid fa-mobile-screen"></i>',
                 title: title,
                 message: msg,
                 actions: actionsHtml
@@ -258,13 +258,13 @@
 
             var actionsHtml = '';
             if (waLink && waLink !== '#') {
-                actionsHtml += '<a href="' + waLink + '" target="_blank" class="afop-btn afop-btn-whatsapp">💬 ' + waText + '</a>';
+                actionsHtml += '<a href="' + waLink + '" target="_blank" class="afop-btn afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> ' + waText + '</a>';
             }
-            actionsHtml += '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-modal-dismiss">বন্ধ করুন</button>';
+            actionsHtml += '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-modal-dismiss"><i class="fa-solid fa-xmark"></i> বন্ধ করুন</button>';
 
             this.showModal({
                 iconClass: 'afop-icon-danger',
-                icon: '🚫',
+                icon: '<i class="fa-solid fa-ban"></i>',
                 title: title,
                 message: msg,
                 actions: actionsHtml
@@ -279,13 +279,13 @@
             var cancelText = data.cancel_btn || afop_data.i18n.cancel_btn || 'না, বাতিল করুন';
 
             var actionsHtml = '<div class="afop-repeat-actions">' +
-                '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-repeat-confirm">' + confirmText + '</button>' +
-                '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-repeat-cancel">' + cancelText + '</button>' +
+                '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-repeat-confirm"><i class="fa-solid fa-circle-check"></i> ' + confirmText + '</button>' +
+                '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-repeat-cancel"><i class="fa-solid fa-circle-xmark"></i> ' + cancelText + '</button>' +
                 '</div>';
 
             this.showModal({
                 iconClass: 'afop-icon-warning',
-                icon: '🔁',
+                icon: '<i class="fa-solid fa-repeat"></i>',
                 title: title,
                 message: msg,
                 actions: actionsHtml

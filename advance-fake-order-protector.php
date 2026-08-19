@@ -3,7 +3,7 @@
  * Plugin Name: Advance Fake Order Protector & Courier Checker
  * Plugin URI: https://sarkarhost.com/
  * Description: Advanced WooCommerce fake order prevention, Bangladeshi phone number validation, IP/Phone 1-click blocklist, repeat order detector, real-time incomplete orders capture, and Steadfast / BDCourier fraud delivery ratio checker.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Sarkarhost
  * Author URI: https://sarkarhost.com/
  * Text Domain: advance-fake-order-protector
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define Plugin Constants
-define('AFOP_VERSION', '1.1.0');
+define('AFOP_VERSION', '1.2.0');
 define('AFOP_PLUGIN_FILE', __FILE__);
 define('AFOP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AFOP_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -131,9 +131,16 @@ final class Advance_Fake_Order_Protector {
         }
 
         wp_enqueue_style(
+            'afop-fontawesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+            array(),
+            '6.5.1'
+        );
+
+        wp_enqueue_style(
             'afop-frontend-css',
             AFOP_PLUGIN_URL . 'assets/css/afop-frontend.css',
-            array(),
+            array('afop-fontawesome'),
             AFOP_VERSION
         );
 

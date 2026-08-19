@@ -4,7 +4,7 @@
 ![WooCommerce](https://img.shields.io/badge/WooCommerce-5.0%2B-purple.svg)
 ![HPOS Compatible](https://img.shields.io/badge/HPOS-Compatible-success.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.4%20|%208.0%20|%208.1%20|%208.2-8892BF.svg)
-![Version](https://img.shields.io/badge/Version-1.1.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPLv2-green.svg)
 
 **Advance Fake Order Protector & Courier Checker** is an all-in-one WooCommerce security, fraud prevention, incomplete order recovery, and courier delivery ratio analytics plugin tailored specifically for Bangladeshi e-commerce stores.
@@ -98,6 +98,13 @@ advance-fake-order-protector/
 ---
 
 ## 📋 Changelog
+
+### Version 1.2.0
+* **Added:** Replaced all emojis with FontAwesome 6 icons across admin panels, orders table, settings tabs, and frontend modals.
+* **Added:** Multi-Provider tabs inside Courier Ratio modal (BD Courier, Steadfast, FraudBD live checking).
+* **Added:** Incomplete Orders submenu placed directly under WooCommerce with dynamic pending lead count bubble.
+* **Added:** Bulk Block (paste multiple phone numbers / IPs), Export to CSV, and Import from CSV/TXT in Blocklist Manager.
+* **Added:** Direct customer phone number display in WooCommerce Orders table.
 
 ### Version 1.1.0
 * **Added:** Ordered Products column in WooCommerce Orders table with thumbnail image, clickable title, and quantity.

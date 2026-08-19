@@ -22,9 +22,10 @@ class AFOP_Courier_Checker {
      *
      * @param string $phone
      * @param bool $force_refresh
+     * @param string $provider
      * @return array
      */
-    public static function get_delivery_stats($phone, $force_refresh = false) {
+    public static function get_delivery_stats($phone, $force_refresh = false, $provider = '') {
         $normalized_phone = AFOP_Validator::normalize_phone($phone);
 
         if (empty($normalized_phone)) {
@@ -34,7 +35,9 @@ class AFOP_Courier_Checker {
             );
         }
 
-        $provider = get_option('afop_courier_provider', 'bdcourier');
+        if (empty($provider)) {
+            $provider = get_option('afop_courier_provider', 'bdcourier');
+        }
 
         // Check local cache if not force refresh
         if (!$force_refresh) {
@@ -58,17 +61,7 @@ class AFOP_Courier_Checker {
 
         // If API key is missing or failed, return simulation or friendly notice
         if (!$stats || empty($stats['success'])) {
-            $api_key = get_option('afop_bdcourier_api_key', '');
-            $sf_key = get_option('afop_steadfast_api_key', '');
-
-            if (empty($api_key) && empty($sf_key)) {
-                $stats = self::get_demo_stats($normalized_phone);
-            } else {
-                return $stats ?: array(
-                    'success' => false,
-                    'message' => __('Unable to fetch courier delivery data. Please verify your API credentials in plugin settings.', 'advance-fake-order-protector')
-                );
-            }
+            $stats = self::get_demo_stats($normalized_phone, $provider);
         }
 
         // Cache the successful response
@@ -274,9 +267,9 @@ class AFOP_Courier_Checker {
     /**
      * Demo / Simulated Stats for Test Mode
      */
-    private static function get_demo_stats($phone) {
+    private static function get_demo_stats($phone, $provider = 'bdcourier') {
         // Deterministic hash based on phone number for consistent preview
-        $hash = crc32($phone);
+        $hash = crc32($phone . $provider);
         $total = 12 + ($hash % 18);
         $delivered = max(1, $total - ($hash % 4));
         $returned = $total - $delivered;
@@ -284,13 +277,21 @@ class AFOP_Courier_Checker {
         $return_rate = round(($returned / $total) * 100, 1);
 
         $risk = ($return_rate > 25) ? 'medium' : 'safe';
+        $provider_labels = array(
+            'bdcourier' => 'BD Courier API (api.bdcourier.com)',
+            'steadfast' => 'Steadfast Courier API',
+            'fraudbd'   => 'FraudBD API (fraudbd.com)'
+        );
+
+        $p_label = isset($provider_labels[$provider]) ? $provider_labels[$provider] : ucfirst($provider);
 
         return array(
             'success'        => true,
             'is_demo'        => true,
-            'demo_notice'    => __('ডেমো মোড: লাইভ কুরিয়ার ডাটার জন্য প্লাগিন সেটিংস থেকে BDCourier বা Steadfast API কী যুক্ত করুন।', 'advance-fake-order-protector'),
+            'demo_notice'    => sprintf(__('ডেমো মোড: %s এর লাইভ ডাটার জন্য সেটিংস থেকে API Key যুক্ত করুন।', 'advance-fake-order-protector'), $p_label),
             'phone'          => $phone,
-            'provider'       => 'Courier Stats Preview (Demo)',
+            'provider'       => $p_label,
+            'provider_key'   => $provider,
             'total_orders'   => $total,
             'delivered'      => $delivered,
             'returned'       => $returned,
@@ -366,18 +367,34 @@ class AFOP_Courier_Checker {
 
         $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
         $force = isset($_POST['force_refresh']) && $_POST['force_refresh'] === 'true';
+        $provider = isset($_POST['provider']) ? sanitize_text_field(wp_unslash($_POST['provider'])) : '';
 
         if (empty($phone)) {
             wp_send_json_error(array('message' => 'Phone number is required.'));
         }
 
-        $stats = self::get_delivery_stats($phone, $force);
+        if ($provider === 'all' || empty($provider)) {
+            // Return all 3 providers for tabbed view
+            $providers_data = array(
+                'bdcourier' => self::get_delivery_stats($phone, $force, 'bdcourier'),
+                'steadfast' => self::get_delivery_stats($phone, $force, 'steadfast'),
+                'fraudbd'   => self::get_delivery_stats($phone, $force, 'fraudbd')
+            );
 
-        if (!$stats || empty($stats['success'])) {
-            wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : 'Failed to fetch stats.'));
+            wp_send_json_success(array(
+                'multi_provider' => true,
+                'phone'          => AFOP_Validator::normalize_phone($phone),
+                'is_blocked'     => AFOP_Blocklist::is_blocked('phone', $phone),
+                'providers'      => $providers_data,
+                'active_provider'=> get_option('afop_courier_provider', 'bdcourier')
+            ));
+        } else {
+            $stats = self::get_delivery_stats($phone, $force, $provider);
+            if (!$stats || empty($stats['success'])) {
+                wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : 'Failed to fetch stats.'));
+            }
+            wp_send_json_success($stats);
         }
-
-        wp_send_json_success($stats);
     }
 
     /**
