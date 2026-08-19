@@ -136,10 +136,10 @@ class AFOP_Activator {
 
             'afop_enable_repeat_check'      => 'yes',
             'afop_repeat_time_limit'        => 60, // 60 minutes
-            'afop_repeat_order_title'       => 'পুনরায় অর্ডার নিশ্চিতকরণ',
-            'afop_repeat_order_msg'         => 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?',
-            'afop_confirm_btn_text'         => 'হ্যাঁ, আবার অর্ডার করুন',
-            'afop_cancel_btn_text'          => 'না, বাতিল করুন',
+            'afop_repeat_order_title'       => 'পুনরায় অর্ডার সংক্রান্ত তথ্য',
+            'afop_repeat_order_msg'         => 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। পুনরায় একই প্রোডাক্ট অর্ডার করতে চাইলে অনুগ্রহ করে আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।',
+            'afop_repeat_whatsapp_btn'      => 'হোয়াটসঅ্যাপে অর্ডার করুন',
+            'afop_repeat_whatsapp_msg'      => 'Hello Support, I ordered this product earlier and want to place a repeat order. Please assist me.',
 
             'afop_enable_incomplete_capture'=> 'yes',
             'afop_incomplete_retention_days'=> 30,

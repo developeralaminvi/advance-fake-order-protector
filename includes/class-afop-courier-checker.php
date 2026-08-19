@@ -1,8 +1,8 @@
 <?php
 /**
  * Courier Delivery Ratio & Fraud Checker Engine
- * Supports BDCourier, Steadfast, and FraudBD API integrations.
- * Calculates Delivery vs Return ratio, Risk Score, and Courier breakdown.
+ * Supports BDCourier, Steadfast, and FraudBD (https://fraudbd.com/api-documentation) API integrations.
+ * Calculates Delivery vs Return ratio, Pathao Rating evaluations, Risk Score, and Multi-Courier breakdowns.
  */
 
 if (!defined('ABSPATH')) {
@@ -59,12 +59,12 @@ class AFOP_Courier_Checker {
             $stats = self::fetch_bdcourier_stats($normalized_phone);
         }
 
-        // If API key is missing or failed, return simulation or friendly notice
+        // If API key is missing or failed, fallback to simulated preview
         if (!$stats || empty($stats['success'])) {
             $stats = self::get_demo_stats($normalized_phone, $provider);
         }
 
-        // Cache the successful response
+        // Cache the live successful response
         if (!empty($stats['success']) && empty($stats['is_demo'])) {
             self::save_to_cache($normalized_phone, $provider, $stats);
         }
@@ -73,6 +73,179 @@ class AFOP_Courier_Checker {
         $stats['from_cache'] = false;
 
         return $stats;
+    }
+
+    /**
+     * Fetch from FraudBD API (https://fraudbd.com/api/check-courier-info)
+     */
+    private static function fetch_fraudbd_stats($phone) {
+        $api_key = trim(get_option('afop_fraudbd_api_key', ''));
+
+        if (empty($api_key)) {
+            return array(
+                'success' => false,
+                'message' => __('FraudBD API Key is missing. Please enter it in Settings > Courier API.', 'advance-fake-order-protector')
+            );
+        }
+
+        // Ensure 11-digit clean phone number (e.g. 017XXXXXXXX)
+        $clean_phone = preg_replace('/[^0-9]/', '', $phone);
+        if (substr($clean_phone, 0, 2) === '88' && strlen($clean_phone) === 13) {
+            $clean_phone = substr($clean_phone, 2);
+        }
+
+        $endpoint = 'https://fraudbd.com/api/check-courier-info';
+
+        $response = wp_remote_post($endpoint, array(
+            'headers' => array(
+                'api_key'      => $api_key,
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json'
+            ),
+            'body'    => wp_json_encode(array(
+                'phone_number' => $clean_phone
+            )),
+            'timeout' => 20
+        ));
+
+        if (is_wp_error($response)) {
+            return array(
+                'success' => false,
+                'message' => $response->get_error_message()
+            );
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code === 401 || $code === 403) {
+            return array(
+                'success' => false,
+                'message' => __('FraudBD: Unauthorized. Please check your API Key.', 'advance-fake-order-protector')
+            );
+        }
+
+        if ($code === 429) {
+            return array(
+                'success' => false,
+                'message' => __('FraudBD: Rate limit exceeded (60 requests/min). Please try again shortly.', 'advance-fake-order-protector')
+            );
+        }
+
+        if (empty($body) || (isset($body['status']) && $body['status'] === false)) {
+            return array(
+                'success' => false,
+                'message' => isset($body['message']) ? $body['message'] : __('FraudBD API error response.', 'advance-fake-order-protector')
+            );
+        }
+
+        return self::format_fraudbd_response($clean_phone, $body);
+    }
+
+    /**
+     * Parse and standardize FraudBD API response
+     * Handles Pathao customer ratings (excellent_customer, risky_customer, etc.) and traditional delivery stats
+     */
+    private static function format_fraudbd_response($phone, $raw) {
+        $data = isset($raw['data']) ? $raw['data'] : array();
+        $total_summary = isset($data['totalSummary']) ? $data['totalSummary'] : array();
+        $summaries = isset($data['Summaries']) && is_array($data['Summaries']) ? $data['Summaries'] : array();
+
+        $total_orders = isset($total_summary['total']) ? intval($total_summary['total']) : 0;
+        $delivered    = isset($total_summary['success']) ? intval($total_summary['success']) : 0;
+        $returned     = isset($total_summary['cancel']) ? intval($total_summary['cancel']) : 0;
+        $delivery_rate= isset($total_summary['successRate']) ? floatval($total_summary['successRate']) : 0;
+        $return_rate  = isset($total_summary['cancelRate']) ? floatval($total_summary['cancelRate']) : 0;
+
+        $couriers = array();
+        $has_high_risk = false;
+        $rating_notes = array();
+
+        foreach ($summaries as $courier_name => $c_stat) {
+            $data_type = isset($c_stat['data_type']) ? $c_stat['data_type'] : 'delivery';
+            $logo = isset($c_stat['logo']) ? $c_stat['logo'] : '';
+
+            if ($data_type === 'rating') {
+                $rating = isset($c_stat['customer_rating']) ? $c_stat['customer_rating'] : 'new_customer';
+                $risk   = isset($c_stat['risk_level']) ? $c_stat['risk_level'] : 'low';
+                $msg    = isset($c_stat['message']) ? $c_stat['message'] : '';
+                $rate   = isset($c_stat['success_rate']) ? intval($c_stat['success_rate']) : 0;
+
+                if ($risk === 'high' || $risk === 'very_high' || $rating === 'risky_customer') {
+                    $has_high_risk = true;
+                }
+
+                $rating_label = ucwords(str_replace('_', ' ', $rating));
+                $rating_notes[] = $courier_name . ': ' . ($msg ?: $rating_label);
+
+                $couriers[] = array(
+                    'name'            => $courier_name,
+                    'logo'            => $logo,
+                    'data_type'       => 'rating',
+                    'customer_rating' => $rating,
+                    'rating_label'    => $rating_label,
+                    'risk_level'      => $risk,
+                    'rating_message'  => $msg,
+                    'success_rate'    => $rate,
+                    'total'           => 0,
+                    'delivered'       => 0,
+                    'returned'        => 0
+                );
+            } else {
+                $c_total = isset($c_stat['total']) ? intval($c_stat['total']) : 0;
+                $c_success = isset($c_stat['success']) ? intval($c_stat['success']) : 0;
+                $c_cancel = isset($c_stat['cancel']) ? intval($c_stat['cancel']) : 0;
+
+                $couriers[] = array(
+                    'name'      => $courier_name,
+                    'logo'      => $logo,
+                    'data_type' => 'delivery',
+                    'total'     => $c_total,
+                    'delivered' => $c_success,
+                    'returned'  => $c_cancel
+                );
+            }
+        }
+
+        // If totalSummary total is 0, calculate sum from delivery couriers if available
+        if ($total_orders == 0 && !empty($couriers)) {
+            foreach ($couriers as $c) {
+                if ($c['data_type'] === 'delivery') {
+                    $total_orders += $c['total'];
+                    $delivered += $c['delivered'];
+                    $returned += $c['returned'];
+                }
+            }
+            if ($total_orders > 0) {
+                $delivery_rate = round(($delivered / $total_orders) * 100, 1);
+                $return_rate   = round(($returned / $total_orders) * 100, 1);
+            }
+        }
+
+        // Determine overall risk score
+        $risk_level = 'safe';
+        if ($has_high_risk || $return_rate >= 30 || ($total_orders > 2 && $delivery_rate < 65)) {
+            $risk_level = 'high';
+        } elseif ($return_rate >= 15 || ($total_orders > 2 && $delivery_rate < 80)) {
+            $risk_level = 'medium';
+        }
+
+        return array(
+            'success'        => true,
+            'phone'          => $phone,
+            'provider'       => 'FraudBD API',
+            'provider_key'   => 'fraudbd',
+            'total_orders'   => $total_orders,
+            'delivered'      => $delivered,
+            'returned'       => $returned,
+            'cancelled'      => $returned,
+            'delivery_rate'  => $delivery_rate,
+            'return_rate'    => $return_rate,
+            'risk_level'     => $risk_level,
+            'couriers'       => $couriers,
+            'rating_notes'   => $rating_notes,
+            'raw_data'       => $raw
+        );
     }
 
     /**
@@ -166,42 +339,9 @@ class AFOP_Courier_Checker {
     }
 
     /**
-     * Fetch from FraudBD API
-     */
-    private static function fetch_fraudbd_stats($phone) {
-        $api_key = trim(get_option('afop_fraudbd_api_key', ''));
-
-        if (empty($api_key)) {
-            return array(
-                'success' => false,
-                'message' => __('FraudBD API Key is missing.', 'advance-fake-order-protector')
-            );
-        }
-
-        $endpoint = 'https://fraudbd.com/api/check-courier-info';
-
-        $response = wp_remote_post($endpoint, array(
-            'headers' => array(
-                'api_key'      => $api_key,
-                'Content-Type' => 'application/json'
-            ),
-            'body'    => wp_json_encode(array('phone_number' => $phone)),
-            'timeout' => 15
-        ));
-
-        if (is_wp_error($response)) {
-            return array('success' => false, 'message' => $response->get_error_message());
-        }
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        return self::format_courier_response($phone, 'FraudBD', $body);
-    }
-
-    /**
-     * Standardize courier API responses into unified schema
+     * Standardize legacy courier API responses into unified schema
      */
     private static function format_courier_response($phone, $provider_name, $raw) {
-        // Extract common fields across providers
         $total_orders = 0;
         $delivered = 0;
         $returned = 0;
@@ -218,6 +358,7 @@ class AFOP_Courier_Checker {
                 foreach ($data['courier_details'] as $c_name => $c_stat) {
                     $couriers[] = array(
                         'name'      => ucfirst($c_name),
+                        'data_type' => 'delivery',
                         'total'     => isset($c_stat['total']) ? intval($c_stat['total']) : 0,
                         'delivered' => isset($c_stat['success']) ? intval($c_stat['success']) : 0,
                         'returned'  => isset($c_stat['cancelled']) ? intval($c_stat['cancelled']) : 0,
@@ -239,7 +380,7 @@ class AFOP_Courier_Checker {
         $return_rate   = ($total_orders > 0) ? round(($returned / $total_orders) * 100, 1) : 0;
 
         // Risk Level Calculation
-        $risk_level = 'safe'; // Safe
+        $risk_level = 'safe';
         if ($total_orders > 0) {
             if ($return_rate >= 35 || $delivery_rate < 60) {
                 $risk_level = 'high';
@@ -252,6 +393,7 @@ class AFOP_Courier_Checker {
             'success'        => true,
             'phone'          => $phone,
             'provider'       => $provider_name,
+            'provider_key'   => strtolower(str_replace(' ', '', $provider_name)),
             'total_orders'   => $total_orders,
             'delivered'      => $delivered,
             'returned'       => $returned,
@@ -268,7 +410,6 @@ class AFOP_Courier_Checker {
      * Demo / Simulated Stats for Test Mode
      */
     private static function get_demo_stats($phone, $provider = 'bdcourier') {
-        // Deterministic hash based on phone number for consistent preview
         $hash = crc32($phone . $provider);
         $total = 12 + ($hash % 18);
         $delivered = max(1, $total - ($hash % 4));
@@ -285,6 +426,13 @@ class AFOP_Courier_Checker {
 
         $p_label = isset($provider_labels[$provider]) ? $provider_labels[$provider] : ucfirst($provider);
 
+        $couriers = array(
+            array('name' => 'Steadfast', 'data_type' => 'delivery', 'total' => round($total * 0.5), 'delivered' => round($delivered * 0.5), 'returned' => round($returned * 0.5)),
+            array('name' => 'Pathao', 'data_type' => 'rating', 'customer_rating' => 'excellent_customer', 'rating_label' => 'Excellent Customer', 'risk_level' => 'low', 'rating_message' => 'Excellent Customer - Very High Success Rate', 'total' => 0, 'delivered' => 0, 'returned' => 0),
+            array('name' => 'Paperfly', 'data_type' => 'delivery', 'total' => round($total * 0.3), 'delivered' => round($delivered * 0.3), 'returned' => 0),
+            array('name' => 'RedX', 'data_type' => 'delivery', 'total' => round($total * 0.2), 'delivered' => round($delivered * 0.2), 'returned' => 0)
+        );
+
         return array(
             'success'        => true,
             'is_demo'        => true,
@@ -299,11 +447,7 @@ class AFOP_Courier_Checker {
             'delivery_rate'  => $rate,
             'return_rate'    => $return_rate,
             'risk_level'     => $risk,
-            'couriers'       => array(
-                array('name' => 'Steadfast', 'total' => round($total * 0.5), 'delivered' => round($delivered * 0.5), 'returned' => round($returned * 0.5)),
-                array('name' => 'Pathao', 'total' => round($total * 0.3), 'delivered' => round($delivered * 0.3), 'returned' => 0),
-                array('name' => 'RedX', 'total' => round($total * 0.2), 'delivered' => round($delivered * 0.2), 'returned' => 0)
-            )
+            'couriers'       => $couriers
         );
     }
 
@@ -324,7 +468,7 @@ class AFOP_Courier_Checker {
                 'total_orders'    => $stats['total_orders'],
                 'delivered_count' => $stats['delivered'],
                 'return_count'    => $stats['returned'],
-                'cancelled_count' => $stats['cancelled'],
+                'cancelled_count' => isset($stats['cancelled']) ? $stats['cancelled'] : 0,
                 'raw_response'    => wp_json_encode($stats),
                 'updated_at'      => current_time('mysql')
             ),
@@ -374,7 +518,7 @@ class AFOP_Courier_Checker {
         }
 
         if ($provider === 'all' || empty($provider)) {
-            // Return all 3 providers for tabbed view
+            // Return all 3 providers for multi-tab rendering
             $providers_data = array(
                 'bdcourier' => self::get_delivery_stats($phone, $force, 'bdcourier'),
                 'steadfast' => self::get_delivery_stats($phone, $force, 'steadfast'),
@@ -407,13 +551,52 @@ class AFOP_Courier_Checker {
             wp_send_json_error(array('message' => 'Unauthorized.'));
         }
 
-        $test_phone = '01711122334';
-        $stats = self::get_delivery_stats($test_phone, true);
+        $active_provider = get_option('afop_courier_provider', 'bdcourier');
+        $test_phone = '01712345678';
 
-        if (!empty($stats['success'])) {
-            wp_send_json_success(array('message' => __('API Connection Successful! Live courier data is responding.', 'advance-fake-order-protector')));
+        if ($active_provider === 'fraudbd') {
+            $api_key = trim(get_option('afop_fraudbd_api_key', ''));
+            if (empty($api_key)) {
+                wp_send_json_error(array('message' => __('FraudBD API Key is missing. Please enter your API key first.', 'advance-fake-order-protector')));
+            }
+
+            // Perform direct ping to FraudBD check-courier-info endpoint
+            $endpoint = 'https://fraudbd.com/api/check-courier-info';
+            $response = wp_remote_post($endpoint, array(
+                'headers' => array(
+                    'api_key'      => $api_key,
+                    'Content-Type' => 'application/json',
+                    'Accept'       => 'application/json'
+                ),
+                'body'    => wp_json_encode(array('phone_number' => $test_phone)),
+                'timeout' => 15
+            ));
+
+            if (is_wp_error($response)) {
+                wp_send_json_error(array('message' => 'FraudBD Connection Error: ' . $response->get_error_message()));
+            }
+
+            $code = wp_remote_retrieve_response_code($response);
+            $body = json_decode(wp_remote_retrieve_body($response), true);
+
+            if ($code === 200 && isset($body['status']) && $body['status'] === true) {
+                wp_send_json_success(array('message' => __('FraudBD API Connected Successfully! Live courier intelligence is active.', 'advance-fake-order-protector')));
+            } elseif ($code === 401 || $code === 403) {
+                wp_send_json_error(array('message' => __('FraudBD Error: Invalid or unauthorized API Key.', 'advance-fake-order-protector')));
+            } elseif ($code === 429) {
+                wp_send_json_error(array('message' => __('FraudBD Error: Rate limit reached. Try again shortly.', 'advance-fake-order-protector')));
+            } else {
+                $err_msg = isset($body['message']) ? $body['message'] : ('HTTP ' . $code . ' Response');
+                wp_send_json_error(array('message' => 'FraudBD Error: ' . $err_msg));
+            }
         } else {
-            wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : __('Connection failed.', 'advance-fake-order-protector')));
+            $stats = self::get_delivery_stats($test_phone, true, $active_provider);
+
+            if (!empty($stats['success']) && empty($stats['is_demo'])) {
+                wp_send_json_success(array('message' => sprintf(__('%s Connected Successfully! Live courier data is active.', 'advance-fake-order-protector'), ucfirst($active_provider))));
+            } else {
+                wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : __('Connection failed. Please verify your API Key and Secret.', 'advance-fake-order-protector')));
+            }
         }
     }
 }

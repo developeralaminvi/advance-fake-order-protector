@@ -54,8 +54,8 @@ class AFOP_Admin {
 
         // 2. Main Plugin Top-Level Menu
         add_menu_page(
-            __('Fake Order Protector', 'advance-fake-order-protector'),
-            __('Fake Order Protector', 'advance-fake-order-protector'),
+            __('SARKAR IT Fake protection', 'advance-fake-order-protector'),
+            __('SARKAR IT Protection', 'advance-fake-order-protector'),
             'manage_woocommerce',
             'afop-settings',
             array($this, 'render_settings_page'),
@@ -65,7 +65,7 @@ class AFOP_Admin {
 
         add_submenu_page(
             'afop-settings',
-            __('Settings & Dashboard', 'advance-fake-order-protector'),
+            __('Settings & Dashboard - SARKAR IT', 'advance-fake-order-protector'),
             __('Settings', 'advance-fake-order-protector'),
             'manage_woocommerce',
             'afop-settings',
@@ -546,8 +546,8 @@ class AFOP_Admin {
             'afop_repeat_time_limit'        => 'int',
             'afop_repeat_order_title'       => 'text',
             'afop_repeat_order_msg'         => 'textarea',
-            'afop_confirm_btn_text'         => 'text',
-            'afop_cancel_btn_text'          => 'text',
+            'afop_repeat_whatsapp_btn'      => 'text',
+            'afop_repeat_whatsapp_msg'      => 'textarea',
             'afop_enable_incomplete_capture'=> 'yes_no',
             'afop_courier_provider'         => 'text',
             'afop_bdcourier_api_key'        => 'text',
@@ -586,8 +586,8 @@ class AFOP_Admin {
         <div class="wrap afop-admin-wrap">
             <div class="afop-header-banner">
                 <div class="afop-header-content">
-                    <h1><i class="fa-solid fa-shield-halved"></i> Advance Fake Order Protector & Courier Checker</h1>
-                    <p>WooCommerce Fake Order Defense, Bangladeshi Phone Verification, Repeat Order Blocker & Multi-Courier Ratio Analysis</p>
+                    <h1><i class="fa-solid fa-shield-halved"></i> SARKAR IT Fake protection</h1>
+                    <p>WooCommerce Fake Order Defense, Bangladeshi Phone Verification, Repeat Order Protection with WhatsApp & Multi-Courier Ratio Analysis</p>
                 </div>
             </div>
 
@@ -704,7 +704,7 @@ class AFOP_Admin {
                                 <td>
                                     <label>
                                         <input type="checkbox" name="afop_enable_repeat_check" value="yes" <?php checked(get_option('afop_enable_repeat_check', 'yes'), 'yes'); ?>>
-                                        একই কাস্টমার নির্দিষ্ট সময়ের মধ্যে একই প্রোডাক্ট ২য় বার অর্ডার করতে গেলে কনফার্মেশন পপআপ দেখাবে।
+                                        একই কাস্টমার নির্দিষ্ট সময়ের মধ্যে একই প্রোডাক্ট ২য় বার অর্ডার করতে গেলে সরাসরি কনফার্ম না করে হোয়াটসঅ্যাপে যোগাযোগের পপআপ দেখাবে।
                                     </label>
                                 </td>
                             </tr>
@@ -718,26 +718,26 @@ class AFOP_Admin {
                             <tr>
                                 <th scope="row">Repeat Order Modal Title</th>
                                 <td>
-                                    <input type="text" name="afop_repeat_order_title" value="<?php echo esc_attr(get_option('afop_repeat_order_title', 'পুনরায় অর্ডার নিশ্চিতকরণ')); ?>" class="regular-text">
+                                    <input type="text" name="afop_repeat_order_title" value="<?php echo esc_attr(get_option('afop_repeat_order_title', 'পুনরায় অর্ডার সংক্রান্ত তথ্য')); ?>" class="regular-text">
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row">Repeat Order Warning Message</th>
                                 <td>
-                                    <textarea name="afop_repeat_order_msg" rows="3" class="large-text"><?php echo esc_textarea(get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?')); ?></textarea>
+                                    <textarea name="afop_repeat_order_msg" rows="3" class="large-text"><?php echo esc_textarea(get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। পুনরায় একই প্রোডাক্ট অর্ডার করতে চাইলে অনুগ্রহ করে আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।')); ?></textarea>
                                     <p class="description">ব্যবহার করুন <code>{minutes}</code> কত মিনিট আগে অর্ডার করেছিল তা স্বয়ংক্রিয়ভাবে দেখাতে।</p>
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Confirm Button Text</th>
+                                <th scope="row">WhatsApp Button Text</th>
                                 <td>
-                                    <input type="text" name="afop_confirm_btn_text" value="<?php echo esc_attr(get_option('afop_confirm_btn_text', 'হ্যাঁ, আবার অর্ডার করুন')); ?>" class="regular-text">
+                                    <input type="text" name="afop_repeat_whatsapp_btn" value="<?php echo esc_attr(get_option('afop_repeat_whatsapp_btn', 'হোয়াটসঅ্যাপে অর্ডার করুন')); ?>" class="regular-text">
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">Cancel Button Text</th>
+                                <th scope="row">WhatsApp Pre-filled Message</th>
                                 <td>
-                                    <input type="text" name="afop_cancel_btn_text" value="<?php echo esc_attr(get_option('afop_cancel_btn_text', 'না, বাতিল করুন')); ?>" class="regular-text">
+                                    <textarea name="afop_repeat_whatsapp_msg" rows="2" class="large-text"><?php echo esc_textarea(get_option('afop_repeat_whatsapp_msg', 'Hello Support, I placed an order recently and would like to order the same product again. Please assist me.')); ?></textarea>
                                 </td>
                             </tr>
                         </table>
@@ -779,7 +779,8 @@ class AFOP_Admin {
                             <tr>
                                 <th scope="row">FraudBD API Key</th>
                                 <td>
-                                    <input type="password" name="afop_fraudbd_api_key" value="<?php echo esc_attr(get_option('afop_fraudbd_api_key', '')); ?>" class="large-text" placeholder="FraudBD API Key">
+                                    <input type="password" name="afop_fraudbd_api_key" value="<?php echo esc_attr(get_option('afop_fraudbd_api_key', '')); ?>" class="large-text" placeholder="FraudBD Account থেকে প্রাপ্ত API Key">
+                                    <p class="description"><a href="https://fraudbd.com" target="_blank">fraudbd.com</a> থেকে আপনার API Key সংগ্রহ করুন (অথবা টেস্ট করার জন্য Sandbox Key ব্যবহার করতে পারেন)।</p>
                                 </td>
                             </tr>
                             <tr>
@@ -804,6 +805,22 @@ class AFOP_Admin {
                     <input type="submit" name="afop_save_settings" id="submit" class="button button-primary button-large" value="<?php esc_attr_e('Save Changes', 'advance-fake-order-protector'); ?>">
                 </p>
             </form>
+
+            <!-- SARKAR IT Copyright Footer -->
+            <div class="afop-copyright-card">
+                <div class="afop-copyright-left">
+                    <div class="afop-copyright-title">
+                        <i class="fa-solid fa-shield-halved"></i> <strong><a href="https://www.sarkarit.com/" target="_blank">SARKAR IT</a></strong> Fake protection
+                    </div>
+                    <p class="afop-copyright-address"><i class="fa-solid fa-location-dot"></i> Flat No: 4A, House, 9 Main Rd, Dhaka 1207</p>
+                </div>
+                <div class="afop-copyright-right">
+                    <p><i class="fa-brands fa-facebook"></i> Call for Facebook: <a href="tel:+8801785552264">+88 01785552264</a></p>
+                    <p><i class="fa-solid fa-phone"></i> Call for Web: <a href="tel:+8801789363695">+88 01789363695</a></p>
+                    <p><i class="fa-solid fa-envelope"></i> Email: <a href="mailto:info@sarkarit.com">info@sarkarit.com</a></p>
+                    <p class="afop-copyright-text"><small>&copy; <?php echo date('Y'); ?> <a href="https://www.sarkarit.com/" target="_blank">SARKAR IT</a>. All Rights Reserved.</small></p>
+                </div>
+            </div>
         </div>
         <?php
     }

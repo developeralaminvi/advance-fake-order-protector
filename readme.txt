@@ -1,13 +1,13 @@
-=== Advance Fake Order Protector & Courier Checker ===
-Contributors: sarkarhost
-Tags: woocommerce, fake order, bangladesh phone validation, courier checker, steadfast, bdcourier, incomplete orders, fraud prevention
+=== SARKAR IT Fake protection ===
+Contributors: sarkarit
+Tags: woocommerce, fake order, bangladesh phone validation, courier checker, steadfast, bdcourier, fraudbd, incomplete orders, fraud prevention
 Requires at least: 5.8
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 
-Advanced fake order protector for Bangladeshi WooCommerce stores with phone number validation, 1-click IP/phone blocklist, repeat order protection, real-time incomplete orders tracker, and Steadfast & BDCourier delivery ratio analytics.
+SARKAR IT Fake protection for Bangladeshi WooCommerce stores with phone number validation, 1-click IP/phone blocklist, repeat order WhatsApp protection, real-time incomplete orders tracker, and Steadfast, BDCourier & FraudBD delivery ratio analytics.
 
 == Description ==
 

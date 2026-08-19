@@ -1,17 +1,21 @@
 <?php
 /**
- * Plugin Name: Advance Fake Order Protector & Courier Checker
- * Plugin URI: https://sarkarhost.com/
- * Description: Advanced WooCommerce fake order prevention, Bangladeshi phone number validation, IP/Phone 1-click blocklist, repeat order detector, real-time incomplete orders capture, and Steadfast / BDCourier fraud delivery ratio checker.
- * Version: 1.2.0
- * Author: Sarkarhost
- * Author URI: https://sarkarhost.com/
+ * Plugin Name: SARKAR IT Fake protection
+ * Plugin URI: https://www.sarkarit.com/
+ * Description: Advanced WooCommerce fake order prevention, Bangladeshi phone number validation, IP/Phone 1-click blocklist, repeat order protection with WhatsApp redirection, real-time incomplete orders capture, and multi-courier delivery ratio analytics.
+ * Version: 1.3.0
+ * Author: SARKAR IT
+ * Author URI: https://www.sarkarit.com/
  * Text Domain: advance-fake-order-protector
  * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * WC requires at least: 5.0
  * WC tested up to: 9.0
+ * 
+ * Copyright: © 2026 SARKAR IT (https://www.sarkarit.com/). All Rights Reserved.
+ * Flat No: 4A, House, 9 Main Rd, Dhaka 1207
+ * Call for Facebook: +88 01785552264 | Call for Web: +88 01789363695 | Email: info@sarkarit.com
  */
 
 if (!defined('ABSPATH')) {
@@ -19,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define Plugin Constants
-define('AFOP_VERSION', '1.2.0');
+define('AFOP_VERSION', '1.3.0');
 define('AFOP_PLUGIN_FILE', __FILE__);
 define('AFOP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AFOP_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -162,6 +166,8 @@ final class Advance_Fake_Order_Protector {
         }
 
         $wa_link = !empty($clean_wa) ? 'https://wa.me/' . $clean_wa . '?text=' . rawurlencode($whatsapp_msg) : '#';
+        $repeat_wa_msg = get_option('afop_repeat_whatsapp_msg', 'Hello Support, I placed an order recently and would like to order the same product again. Please assist me.');
+        $repeat_wa_link = !empty($clean_wa) ? 'https://wa.me/' . $clean_wa . '?text=' . rawurlencode($repeat_wa_msg) : '#';
 
         wp_localize_script('afop-frontend-js', 'afop_data', array(
             'ajax_url'            => admin_url('admin-ajax.php'),
@@ -172,17 +178,18 @@ final class Advance_Fake_Order_Protector {
             'repeat_time_limit'   => intval(get_option('afop_repeat_time_limit', 60)), // in minutes
             'whatsapp_number'     => $whatsapp_num,
             'whatsapp_link'       => $wa_link,
+            'repeat_whatsapp_link'=> $repeat_wa_link,
             'enable_incomplete'   => get_option('afop_enable_incomplete_capture', 'yes'),
             'i18n'                => array(
                 'invalid_phone_title'   => get_option('afop_invalid_phone_title', 'ভুল মোবাইল নম্বর!'),
                 'invalid_phone_msg'     => get_option('afop_invalid_phone_msg', 'আপনার নম্বরটি ভুল। দয়া করে সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর লিখুন।'),
                 'blocked_title'         => get_option('afop_blocked_title', 'অর্ডার ব্লক করা হয়েছে!'),
                 'blocked_msg'           => get_option('afop_blocked_msg', 'দুঃখিত, আপনার আইপি বা মোবাইল নম্বরটি নিরাপত্তা কারণে ব্লক করা আছে। সাহায্যের জন্য আমাদের সাপোর্টে যোগাযোগ করুন।'),
-                'repeat_order_title'    => get_option('afop_repeat_order_title', 'পুনরায় অর্ডার নিশ্চিতকরণ'),
-                'repeat_order_msg'      => get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?'),
-                'confirm_btn'           => get_option('afop_confirm_btn_text', 'হ্যাঁ, আবার অর্ডার করুন'),
-                'cancel_btn'            => get_option('afop_cancel_btn_text', 'না, বাতিল করুন'),
+                'repeat_order_title'    => get_option('afop_repeat_order_title', 'পুনরায় অর্ডার সংক্রান্ত তথ্য'),
+                'repeat_order_msg'      => get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। পুনরায় একই প্রোডাক্ট অর্ডার করতে চাইলে অনুগ্রহ করে আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।'),
+                'repeat_whatsapp_btn'   => get_option('afop_repeat_whatsapp_btn', 'হোয়াটসঅ্যাপে অর্ডার করুন'),
                 'whatsapp_btn'          => get_option('afop_whatsapp_btn_text', 'হোয়াটসঅ্যাপে যোগাযোগ করুন'),
+                'close_btn'             => 'বন্ধ করুন',
                 'ok_btn'                => 'ঠিক আছে'
             )
         ));

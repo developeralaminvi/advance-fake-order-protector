@@ -180,16 +180,17 @@ class AFOP_Repeat_Order {
         $check = self::check_repeat_order($phone);
 
         if ($check['is_repeat']) {
-            $msg_template = get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?');
+            $msg_template = get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। পুনরায় একই প্রোডাক্ট অর্ডার করতে চাইলে অনুগ্রহ করে আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।');
             $msg = str_replace('{minutes}', $check['minutes_ago'], $msg_template);
 
             wp_send_json_success(array(
                 'is_repeat'     => true,
                 'minutes_ago'   => $check['minutes_ago'],
-                'title'         => get_option('afop_repeat_order_title', 'পুনরায় অর্ডার নিশ্চিতকরণ'),
+                'title'         => get_option('afop_repeat_order_title', 'পুনরায় অর্ডার সংক্রান্ত তথ্য'),
                 'message'       => $msg,
-                'confirm_btn'   => get_option('afop_confirm_btn_text', 'হ্যাঁ, আবার অর্ডার করুন'),
-                'cancel_btn'    => get_option('afop_cancel_btn_text', 'না, বাতিল করুন')
+                'show_whatsapp' => true,
+                'whatsapp_btn'  => get_option('afop_repeat_whatsapp_btn', 'হোয়াটসঅ্যাপে অর্ডার করুন'),
+                'close_btn'     => 'বন্ধ করুন'
             ));
         }
 
@@ -204,11 +205,6 @@ class AFOP_Repeat_Order {
             return;
         }
 
-        // If user already clicked 'Confirm' in the popup, they send afop_repeat_confirmed = 1
-        if (isset($_POST['afop_repeat_confirmed']) && $_POST['afop_repeat_confirmed'] === '1') {
-            return;
-        }
-
         $billing_phone = isset($_POST['billing_phone']) ? sanitize_text_field(wp_unslash($_POST['billing_phone'])) : '';
         if (empty($billing_phone)) {
             return;
@@ -217,7 +213,7 @@ class AFOP_Repeat_Order {
         $check = self::check_repeat_order($billing_phone);
 
         if ($check['is_repeat']) {
-            $msg_template = get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?');
+            $msg_template = get_option('afop_repeat_order_msg', 'আপনি {minutes} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। পুনরায় একই প্রোডাক্ট অর্ডার করতে চাইলে অনুগ্রহ করে আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।');
             $msg = str_replace('{minutes}', $check['minutes_ago'], $msg_template);
             wc_add_notice(esc_html($msg), 'error');
         }

@@ -530,15 +530,32 @@
 
             if (data.couriers && data.couriers.length > 0) {
                 $.each(data.couriers, function (i, c) {
-                    var successPercent = (c.total > 0) ? Math.round((c.delivered / c.total) * 100) : 0;
-                    var rowHtml = '<tr>' +
-                        '<td><strong>' + c.name + '</strong></td>' +
-                        '<td>' + c.total + '</td>' +
-                        '<td><span style="color: #16a34a; font-weight: 600;">' + c.delivered + '</span></td>' +
-                        '<td><span style="color: #dc2626; font-weight: 600;">' + c.returned + '</span></td>' +
-                        '<td><strong>' + successPercent + '%</strong></td>' +
-                        '</tr>';
-                    $tbody.append(rowHtml);
+                    if (c.data_type === 'rating') {
+                        var isRisky = (c.risk_level === 'high' || c.risk_level === 'very_high' || c.customer_rating === 'risky_customer');
+                        var isMedium = (c.risk_level === 'medium' || c.customer_rating === 'moderate_customer');
+                        var badgeStyle = isRisky ? 'background: #fee2e2; color: #991b1b;' : (isMedium ? 'background: #fef9c3; color: #854d0e;' : 'background: #dcfce7; color: #166534;');
+                        var iconClass = isRisky ? 'fa-triangle-exclamation' : (isMedium ? 'fa-circle-exclamation' : 'fa-circle-check');
+
+                        var ratingText = c.rating_message || c.rating_label || 'Pathao Rating';
+                        var rateText = c.success_rate ? c.success_rate + '%' : 'Rating';
+
+                        var rowHtml = '<tr>' +
+                            '<td><strong>' + c.name + '</strong> <small style="color: #64748b;">(Rating)</small></td>' +
+                            '<td colspan="3"><span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; ' + badgeStyle + '"><i class="fa-solid ' + iconClass + '"></i> ' + ratingText + '</span></td>' +
+                            '<td><strong>' + rateText + '</strong></td>' +
+                            '</tr>';
+                        $tbody.append(rowHtml);
+                    } else {
+                        var successPercent = (c.total > 0) ? Math.round((c.delivered / c.total) * 100) : 0;
+                        var rowHtml = '<tr>' +
+                            '<td><strong>' + c.name + '</strong></td>' +
+                            '<td>' + c.total + '</td>' +
+                            '<td><span style="color: #16a34a; font-weight: 600;">' + c.delivered + '</span></td>' +
+                            '<td><span style="color: #dc2626; font-weight: 600;">' + c.returned + '</span></td>' +
+                            '<td><strong>' + successPercent + '%</strong></td>' +
+                            '</tr>';
+                        $tbody.append(rowHtml);
+                    }
                 });
             } else {
                 $tbody.append('<tr><td colspan="5" style="text-align: center; color: #64748b;">No individual breakdown available</td></tr>');

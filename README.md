@@ -1,13 +1,13 @@
-# Advance Fake Order Protector & Courier Checker
+# SARKAR IT Fake protection
 
 ![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)
 ![WooCommerce](https://img.shields.io/badge/WooCommerce-5.0%2B-purple.svg)
 ![HPOS Compatible](https://img.shields.io/badge/HPOS-Compatible-success.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.4%20|%208.0%20|%208.1%20|%208.2-8892BF.svg)
-![Version](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/Version-1.3.0-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPLv2-green.svg)
 
-**Advance Fake Order Protector & Courier Checker** is an all-in-one WooCommerce security, fraud prevention, incomplete order recovery, and courier delivery ratio analytics plugin tailored specifically for Bangladeshi e-commerce stores.
+**SARKAR IT Fake protection** is an all-in-one WooCommerce security, fraud prevention, incomplete order recovery, and courier delivery ratio analytics plugin tailored specifically for Bangladeshi e-commerce stores.
 
 ---
 
@@ -99,6 +99,12 @@ advance-fake-order-protector/
 
 ## 📋 Changelog
 
+### Version 1.3.0
+* **Updated:** Plugin rebranded to SARKAR IT Fake protection with company and copyright metadata.
+* **Added:** Full FraudBD API v2 integration (`https://fraudbd.com/api-documentation`) with support for Pathao customer rating responses (`data_type: "rating"`) and multi-courier stats breakdown.
+* **Updated:** Repeat / Duplicate Order Protection customized with direct WhatsApp contact and assistance modal.
+* **Updated:** Asset versioning updated for instant cache busting.
+
 ### Version 1.2.0
 * **Added:** Replaced all emojis with FontAwesome 6 icons across admin panels, orders table, settings tabs, and frontend modals.
 * **Added:** Multi-Provider tabs inside Courier Ratio modal (BD Courier, Steadfast, FraudBD live checking).
@@ -122,4 +128,4 @@ This project is open-source software licensed under the [GNU General Public Lice
 ---
 
 ## 👨‍💻 Author
-Developed by [Sarkarhost](https://sarkarhost.com/).
+Developed by [SARKAR IT](https://www.sarkarit.com/).

@@ -273,15 +273,17 @@
 
         showRepeatOrderModal: function (data) {
             var self = this;
-            var title = data.title || afop_data.i18n.repeat_order_title || 'পুনরায় অর্ডার নিশ্চিতকরণ';
-            var msg = data.message || 'আপনি কিছুক্ষণ আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?';
-            var confirmText = data.confirm_btn || afop_data.i18n.confirm_btn || 'হ্যাঁ, আবার অর্ডার করুন';
-            var cancelText = data.cancel_btn || afop_data.i18n.cancel_btn || 'না, বাতিল করুন';
+            var title = data.title || afop_data.i18n.repeat_order_title || 'পুনরায় অর্ডার সংক্রান্ত তথ্য';
+            var msg = data.message || 'আপনি কিছুক্ষণ আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। পুনরায় একই প্রোডাক্ট অর্ডার করতে চাইলে অনুগ্রহ করে আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।';
+            var waLink = afop_data.repeat_whatsapp_link || afop_data.whatsapp_link || '#';
+            var waBtnText = data.whatsapp_btn || afop_data.i18n.repeat_whatsapp_btn || 'হোয়াটসঅ্যাপে অর্ডার করুন';
+            var closeText = data.close_btn || afop_data.i18n.close_btn || 'বন্ধ করুন';
 
-            var actionsHtml = '<div class="afop-repeat-actions">' +
-                '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-repeat-confirm"><i class="fa-solid fa-circle-check"></i> ' + confirmText + '</button>' +
-                '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-repeat-cancel"><i class="fa-solid fa-circle-xmark"></i> ' + cancelText + '</button>' +
-                '</div>';
+            var actionsHtml = '';
+            if (waLink && waLink !== '#') {
+                actionsHtml += '<a href="' + waLink + '" target="_blank" class="afop-btn afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> ' + waBtnText + '</a>';
+            }
+            actionsHtml += '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-modal-dismiss"><i class="fa-solid fa-xmark"></i> ' + closeText + '</button>';
 
             this.showModal({
                 iconClass: 'afop-icon-warning',
@@ -289,27 +291,6 @@
                 title: title,
                 message: msg,
                 actions: actionsHtml
-            });
-
-            // Confirm click handler
-            $(document).off('click', '#afop-btn-repeat-confirm').on('click', '#afop-btn-repeat-confirm', function () {
-                self.repeatConfirmed = true;
-                self.hideModal();
-
-                // Append hidden confirmation flag to checkout form
-                if (!$('input[name="afop_repeat_confirmed"]').length) {
-                    $('form.checkout').append('<input type="hidden" name="afop_repeat_confirmed" value="1">');
-                } else {
-                    $('input[name="afop_repeat_confirmed"]').val('1');
-                }
-
-                // Trigger submission
-                $('form.checkout').submit();
-            });
-
-            // Cancel click handler
-            $(document).off('click', '#afop-btn-repeat-cancel').on('click', '#afop-btn-repeat-cancel', function () {
-                self.hideModal();
             });
         }
     };
