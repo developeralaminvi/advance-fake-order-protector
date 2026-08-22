@@ -3,7 +3,7 @@
  * Plugin Name: SARKAR IT Fake protection
  * Plugin URI: https://www.sarkarit.com/
  * Description: Advanced WooCommerce fake order prevention, Bangladeshi phone number validation, IP/Phone 1-click blocklist, repeat order protection with WhatsApp redirection, real-time incomplete orders capture, and multi-courier delivery ratio analytics.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: SARKAR IT
  * Author URI: https://www.sarkarit.com/
  * Text Domain: advance-fake-order-protector
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define Plugin Constants
-define('AFOP_VERSION', '1.3.0');
+define('AFOP_VERSION', '1.4.0');
 define('AFOP_PLUGIN_FILE', __FILE__);
 define('AFOP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AFOP_PLUGIN_URL', plugin_dir_url(__FILE__));

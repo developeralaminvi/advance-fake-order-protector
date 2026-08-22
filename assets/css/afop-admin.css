@@ -197,23 +197,38 @@
     margin-top: 2px;
 }
 
+/* WooCommerce Orders Table Column Rules */
+.wp-list-table th.column-afop_courier_ratio,
+.wp-list-table td.column-afop_courier_ratio {
+    width: 170px;
+    vertical-align: middle;
+}
+
+.wp-list-table th.column-afop_security_actions,
+.wp-list-table td.column-afop_security_actions {
+    width: 160px;
+    vertical-align: middle;
+}
+
 /* Orders Table Action Buttons */
 .afop-order-actions-wrap {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     min-width: 140px;
+    max-width: 180px;
+    box-sizing: border-box;
 }
 
 .afop-phone-display-row {
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .afop-phone-pill-link {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 12px;
+    font-size: 11.5px;
     color: #0f172a;
     background: #f1f5f9;
     padding: 3px 8px;
@@ -221,15 +236,291 @@
     text-decoration: none !important;
     border: 1px solid #e2e8f0;
     font-weight: 600;
+    transition: all 0.15s ease;
 }
 
 .afop-phone-pill-link i {
     color: #2563eb;
+    font-size: 11px;
 }
 
 .afop-phone-pill-link:hover {
     background: #e2e8f0;
-    color: #2563eb;
+    color: #1d4ed8;
+    border-color: #cbd5e1;
+}
+
+/* Mini Courier Ratio Graph Card (Table Column) */
+button.afop-courier-mini-graph,
+.afop-courier-mini-graph {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    user-select: none;
+    font-family: inherit;
+    color: inherit;
+    line-height: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+}
+
+button.afop-courier-mini-graph:hover,
+.afop-courier-mini-graph:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.07);
+}
+
+/* Risk Color Themes for Mini Graph */
+.afop-courier-mini-graph.risk-safe {
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    border-color: #bbf7d0;
+}
+.afop-courier-mini-graph.risk-safe:hover {
+    border-color: #86efac;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.12);
+}
+
+.afop-courier-mini-graph.risk-medium {
+    background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+    border-color: #fed7aa;
+}
+.afop-courier-mini-graph.risk-medium:hover {
+    border-color: #fde68a;
+    box-shadow: 0 4px 10px rgba(217, 119, 6, 0.12);
+}
+
+.afop-courier-mini-graph.risk-high {
+    background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+    border-color: #fecaca;
+}
+.afop-courier-mini-graph.risk-high:hover {
+    border-color: #fca5a5;
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.12);
+}
+
+.afop-courier-mini-graph.risk-neutral {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-color: #e2e8f0;
+}
+.afop-courier-mini-graph.risk-neutral:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+/* Circular SVG Gauge */
+.afop-mini-chart-ring {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.afop-circular-chart {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.afop-circle-bg {
+    fill: none;
+    stroke: #e2e8f0;
+    stroke-width: 3.5;
+}
+
+.afop-circle-progress {
+    fill: none;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.4s ease, stroke 0.3s ease;
+}
+
+.risk-safe .afop-circle-progress { stroke: #10b981; }
+.risk-medium .afop-circle-progress { stroke: #f59e0b; }
+.risk-high .afop-circle-progress { stroke: #ef4444; }
+.risk-neutral .afop-circle-progress { stroke: #3b82f6; }
+
+.afop-mini-chart-percent {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 8.5px;
+    font-weight: 800;
+    line-height: 1;
+    color: #0f172a;
+    letter-spacing: -0.4px;
+    text-align: center;
+}
+
+.afop-mini-chart-percent i {
+    font-size: 11px;
+    color: #3b82f6;
+}
+
+/* Mini Graph Info */
+.afop-mini-graph-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.15;
+}
+
+.afop-mini-graph-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.afop-mini-rate-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.afop-mini-risk-tag {
+    font-size: 8.5px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.tag-safe {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.tag-medium {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.tag-high {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.tag-neutral {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+/* Micro Progress Bar */
+.afop-mini-bar-track {
+    width: 100%;
+    height: 3.5px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 1px 0;
+}
+
+.afop-mini-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+.fill-safe { background: linear-gradient(90deg, #10b981, #059669); }
+.fill-medium { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.fill-high { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.fill-neutral { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+
+.afop-mini-graph-sub {
+    font-size: 9.5px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.afop-mini-graph-sub i.fa-check { color: #16a34a; }
+.afop-mini-graph-sub i.fa-rotate-left { color: #dc2626; }
+
+/* Compact Action Boxes Row (Side by Side) */
+.afop-action-boxes-row {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+    margin-top: 1px;
+}
+
+.afop-btn-box {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1.2;
+    box-sizing: border-box;
+}
+
+.afop-btn-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.afop-btn-box.is-safe {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+.afop-btn-box.is-safe:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+}
+
+.afop-btn-box.is-blocked {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #f87171;
+    font-weight: 700;
+}
+
+.afop-btn-box.is-blocked:hover {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
 }
 
 .afop-btn-action {

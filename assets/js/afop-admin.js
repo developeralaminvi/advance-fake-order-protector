@@ -26,11 +26,14 @@
             // 1. One-Click Block / Unblock Toggle in Orders List & Meta Box
             $(document).on('click', '.afop-toggle-block-btn', function (e) {
                 e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
                 var $btn = $(this);
                 var type = $btn.data('type');
                 var value = $btn.data('value');
 
-                if (!type || !value) return;
+                if (!type || !value) return false;
 
                 $btn.prop('disabled', true).css('opacity', '0.6');
 
@@ -79,20 +82,31 @@
                         self.showToast('Network error while toggling block status.', 'error');
                     }
                 });
+
+                return false;
             });
 
             // 2. Open Courier Ratio Modal
             $(document).on('click', '.afop-check-courier-btn', function (e) {
                 e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
                 var phone = $(this).data('phone');
                 var name = $(this).data('name') || 'Customer';
 
-                if (!phone) return;
+                if (!phone) return false;
 
                 self.currentModalPhone = phone;
                 self.currentModalName = name;
 
                 self.openCourierModal(phone, name, false);
+                return false;
+            });
+
+            // Prevent WooCommerce Orders Table row click redirection when clicking our custom columns/actions
+            $(document).on('click', '.column-afop_courier_ratio, .column-afop_security_actions, .afop-courier-mini-graph, .afop-order-actions-wrap, .afop-toggle-block-btn, .afop-phone-pill-link', function (e) {
+                e.stopPropagation();
             });
 
             // Courier Provider Tabs Switch
@@ -567,6 +581,24 @@
                 $blockBtn.html('<i class="fa-solid fa-unlock"></i> Unblock This Phone').removeClass('button-danger');
             } else {
                 $blockBtn.html('<i class="fa-solid fa-ban"></i> Block This Phone').addClass('button-danger');
+            }
+
+            // Dynamically sync updated stats to order table mini-graph card if visible
+            if (self.currentModalPhone) {
+                var phoneKey = self.currentModalPhone;
+                var $miniCard = $('.afop-courier-mini-graph[data-phone="' + phoneKey + '"]');
+                if ($miniCard.length) {
+                    var safeRisk = data.risk_level || (rate >= 75 ? 'safe' : (rate >= 50 ? 'medium' : 'high'));
+                    var safeTag = (safeRisk === 'safe') ? 'Safe' : ((safeRisk === 'medium') ? 'Medium' : 'Risky');
+
+                    $miniCard.removeClass('risk-safe risk-medium risk-high risk-neutral').addClass('risk-' + safeRisk);
+                    $miniCard.find('.afop-circle-progress').attr('stroke-dasharray', Math.round(rate) + ', 100');
+                    $miniCard.find('.afop-mini-chart-percent').text(Math.round(rate) + '%');
+                    $miniCard.find('.afop-mini-rate-text').text(Math.round(rate) + '% Delivery');
+                    $miniCard.find('.afop-mini-risk-tag').removeClass('tag-safe tag-medium tag-high tag-neutral').addClass('tag-' + safeRisk).text(safeTag);
+                    $miniCard.find('.afop-mini-bar-fill').removeClass('fill-safe fill-medium fill-high fill-neutral').addClass('fill-' + safeRisk).css('width', Math.round(rate) + '%');
+                    $miniCard.find('.afop-mini-graph-sub').html('<span><i class="fa-solid fa-check"></i> ' + (data.delivered || 0) + '</span> <span><i class="fa-solid fa-rotate-left"></i> ' + (data.returned || 0) + '</span> <span>(' + (data.total_orders || 0) + ')</span>');
+                }
             }
         },
 

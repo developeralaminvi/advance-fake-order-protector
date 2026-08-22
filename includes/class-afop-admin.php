@@ -157,20 +157,27 @@ class AFOP_Admin {
     /**
      * Add Custom Columns to WooCommerce Orders Table
      */
+    /**
+     * Add Custom Columns to WooCommerce Orders Table
+     */
     public function add_orders_column($columns) {
         $new_columns = array();
         foreach ($columns as $key => $title) {
             $new_columns[$key] = $title;
             if ($key === 'order_number' || $key === 'order_status') {
                 $new_columns['afop_order_products']   = '<i class="fa-solid fa-box-open"></i> ' . __('Products', 'advance-fake-order-protector');
-                $new_columns['afop_security_actions'] = '<i class="fa-solid fa-shield-halved"></i> ' . __('Security & Courier', 'advance-fake-order-protector');
+                $new_columns['afop_courier_ratio']    = '<i class="fa-solid fa-chart-pie"></i> ' . __('Courier Ratio', 'advance-fake-order-protector');
+                $new_columns['afop_security_actions'] = '<i class="fa-solid fa-shield-halved"></i> ' . __('Security Actions', 'advance-fake-order-protector');
             }
         }
         if (!isset($new_columns['afop_order_products'])) {
             $new_columns['afop_order_products'] = '<i class="fa-solid fa-box-open"></i> ' . __('Products', 'advance-fake-order-protector');
         }
+        if (!isset($new_columns['afop_courier_ratio'])) {
+            $new_columns['afop_courier_ratio'] = '<i class="fa-solid fa-chart-pie"></i> ' . __('Courier Ratio', 'advance-fake-order-protector');
+        }
         if (!isset($new_columns['afop_security_actions'])) {
-            $new_columns['afop_security_actions'] = '<i class="fa-solid fa-shield-halved"></i> ' . __('Security & Courier', 'advance-fake-order-protector');
+            $new_columns['afop_security_actions'] = '<i class="fa-solid fa-shield-halved"></i> ' . __('Security Actions', 'advance-fake-order-protector');
         }
         return $new_columns;
     }
@@ -186,6 +193,8 @@ class AFOP_Admin {
 
         if ($column === 'afop_order_products') {
             $this->render_order_products_column($order);
+        } elseif ($column === 'afop_courier_ratio') {
+            $this->render_courier_ratio_column($order);
         } elseif ($column === 'afop_security_actions') {
             $this->render_security_action_buttons($order);
         }
@@ -201,6 +210,8 @@ class AFOP_Admin {
 
         if ($column === 'afop_order_products') {
             $this->render_order_products_column($order);
+        } elseif ($column === 'afop_courier_ratio') {
+            $this->render_courier_ratio_column($order);
         } elseif ($column === 'afop_security_actions') {
             $this->render_security_action_buttons($order);
         }
@@ -265,58 +276,130 @@ class AFOP_Admin {
     }
 
     /**
+     * Render Dedicated Courier Ratio Mini Graph Column in Orders List
+     */
+    public function render_courier_ratio_column($order) {
+        $phone = $order->get_billing_phone();
+        $normalized_phone = AFOP_Validator::normalize_phone($phone);
+        $customer_name = $order->get_formatted_billing_full_name() ?: 'Customer';
+
+        if (empty($normalized_phone)) {
+            echo '<span style="color: #94a3b8; font-size: 11px;">' . esc_html__('No Phone', 'advance-fake-order-protector') . '</span>';
+            return;
+        }
+
+        // Fetch quick cached or simulated courier delivery stats
+        $courier_stat = AFOP_Courier_Checker::get_quick_courier_stat($normalized_phone);
+        $has_data = !empty($courier_stat) && isset($courier_stat['delivery_rate']);
+        $rate_num = $has_data ? round(floatval($courier_stat['delivery_rate'])) : 0;
+        $total_orders = $has_data && isset($courier_stat['total_orders']) ? intval($courier_stat['total_orders']) : 0;
+        $delivered = $has_data && isset($courier_stat['delivered']) ? intval($courier_stat['delivered']) : 0;
+        $returned = $has_data && isset($courier_stat['returned']) ? intval($courier_stat['returned']) : 0;
+
+        $risk_level = 'neutral';
+        $risk_label = __('Check', 'advance-fake-order-protector');
+
+        if ($has_data) {
+            if (isset($courier_stat['risk_level'])) {
+                $risk_level = $courier_stat['risk_level'];
+            } elseif ($rate_num >= 75) {
+                $risk_level = 'safe';
+            } elseif ($rate_num >= 50) {
+                $risk_level = 'medium';
+            } else {
+                $risk_level = 'high';
+            }
+
+            if ($risk_level === 'safe') {
+                $risk_label = __('Safe', 'advance-fake-order-protector');
+            } elseif ($risk_level === 'medium') {
+                $risk_label = __('Medium', 'advance-fake-order-protector');
+            } else {
+                $risk_label = __('Risky', 'advance-fake-order-protector');
+            }
+        }
+        ?>
+        <button type="button" 
+                class="afop-courier-mini-graph afop-check-courier-btn risk-<?php echo esc_attr($risk_level); ?>" 
+                data-phone="<?php echo esc_attr($normalized_phone); ?>" 
+                data-name="<?php echo esc_attr($customer_name); ?>"
+                title="<?php esc_attr_e('Click to view full Courier Delivery Intelligence', 'advance-fake-order-protector'); ?>">
+            <div class="afop-mini-chart-ring">
+                <svg viewBox="0 0 36 36" class="afop-circular-chart">
+                    <path class="afop-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="afop-circle-progress" stroke-dasharray="<?php echo $has_data ? $rate_num : '0'; ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <span class="afop-mini-chart-percent"><?php echo $has_data ? ($rate_num . '%') : '<i class="fa-solid fa-chart-pie"></i>'; ?></span>
+            </div>
+            <div class="afop-mini-graph-info">
+                <div class="afop-mini-graph-header">
+                    <span class="afop-mini-rate-text"><?php echo $has_data ? sprintf(__('%d%% Delivery', 'advance-fake-order-protector'), $rate_num) : __('Courier Ratio', 'advance-fake-order-protector'); ?></span>
+                    <span class="afop-mini-risk-tag tag-<?php echo esc_attr($risk_level); ?>"><?php echo esc_html($risk_label); ?></span>
+                </div>
+                <div class="afop-mini-bar-track">
+                    <div class="afop-mini-bar-fill fill-<?php echo esc_attr($risk_level); ?>" style="width: <?php echo $has_data ? $rate_num : '0'; ?>%;"></div>
+                </div>
+                <div class="afop-mini-graph-sub">
+                    <?php if ($has_data): ?>
+                        <span><i class="fa-solid fa-check"></i> <?php echo intval($delivered); ?></span>
+                        <span><i class="fa-solid fa-rotate-left"></i> <?php echo intval($returned); ?></span>
+                        <span>(<?php echo intval($total_orders); ?>)</span>
+                    <?php else: ?>
+                        <span><i class="fa-solid fa-bolt"></i> <?php esc_html_e('Click to check', 'advance-fake-order-protector'); ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </button>
+        <?php
+    }
+
+    /**
      * Render the Security Action Buttons & Phone in Orders List
      */
     public function render_security_action_buttons($order) {
         $phone = $order->get_billing_phone();
         $normalized_phone = AFOP_Validator::normalize_phone($phone);
         $client_ip = $order->get_customer_ip_address();
-        $customer_name = $order->get_formatted_billing_full_name() ?: 'Customer';
 
         $phone_blocked = !empty($normalized_phone) ? AFOP_Blocklist::is_blocked('phone', $normalized_phone) : false;
         $ip_blocked = !empty($client_ip) ? AFOP_Blocklist::is_blocked('ip', $client_ip) : false;
         ?>
         <div class="afop-order-actions-wrap" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
             <?php if (!empty($normalized_phone)): ?>
-                <!-- Customer Phone Display with Call Icon -->
+                <!-- Phone Display Pill -->
                 <div class="afop-phone-display-row">
                     <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
                         <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
                     </a>
                 </div>
-
-                <!-- Phone Block Toggle -->
-                <button type="button" 
-                        class="afop-btn-action afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
-                        data-type="phone" 
-                        data-value="<?php echo esc_attr($normalized_phone); ?>"
-                        title="<?php echo $phone_blocked ? esc_attr__('Click to Unblock Phone', 'advance-fake-order-protector') : esc_attr__('Click to Block Phone', 'advance-fake-order-protector'); ?>">
-                    <span class="afop-btn-icon"><i class="fa-solid <?php echo $phone_blocked ? 'fa-ban' : 'fa-phone-slash'; ?>"></i></span>
-                    <span class="afop-btn-text"><?php echo $phone_blocked ? esc_html__('Blocked', 'advance-fake-order-protector') : esc_html__('Block Phone', 'advance-fake-order-protector'); ?></span>
-                </button>
-
-                <!-- Courier Ratio Checker Button -->
-                <button type="button" 
-                        class="afop-btn-action afop-check-courier-btn" 
-                        data-phone="<?php echo esc_attr($normalized_phone); ?>"
-                        data-name="<?php echo esc_attr($customer_name); ?>"
-                        title="<?php echo esc_attr__('Check Courier Delivery Ratio', 'advance-fake-order-protector'); ?>">
-                    <span class="afop-btn-icon"><i class="fa-solid fa-chart-pie"></i></span>
-                    <span class="afop-btn-text"><?php esc_html_e('Courier Ratio', 'advance-fake-order-protector'); ?></span>
-                </button>
             <?php endif; ?>
 
-            <?php if (!empty($client_ip)): ?>
-                <!-- IP Block Toggle -->
-                <button type="button" 
-                        class="afop-btn-action afop-toggle-block-btn <?php echo $ip_blocked ? 'is-blocked' : 'is-safe'; ?>" 
-                        data-type="ip" 
-                        data-value="<?php echo esc_attr($client_ip); ?>"
-                        title="<?php echo $ip_blocked ? esc_attr__('Click to Unblock IP', 'advance-fake-order-protector') : esc_attr__('Click to Block IP', 'advance-fake-order-protector'); ?>">
-                    <span class="afop-btn-icon"><i class="fa-solid <?php echo $ip_blocked ? 'fa-ban' : 'fa-globe'; ?>"></i></span>
-                    <span class="afop-btn-text"><?php echo $ip_blocked ? esc_html__('IP Blocked', 'advance-fake-order-protector') : esc_html__('Block IP', 'advance-fake-order-protector'); ?></span>
-                </button>
-            <?php endif; ?>
+            <!-- Compact Action Boxes Row (Side-by-Side in 1 Line) -->
+            <div class="afop-action-boxes-row">
+                <?php if (!empty($normalized_phone)): ?>
+                    <!-- Phone Block Box -->
+                    <button type="button" 
+                            class="afop-btn-box afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
+                            data-type="phone" 
+                            data-value="<?php echo esc_attr($normalized_phone); ?>"
+                            title="<?php echo $phone_blocked ? esc_attr__('Click to Unblock Phone', 'advance-fake-order-protector') : esc_attr__('Click to Block Phone', 'advance-fake-order-protector'); ?>">
+                        <span class="afop-btn-icon"><i class="fa-solid <?php echo $phone_blocked ? 'fa-ban' : 'fa-phone-slash'; ?>"></i></span>
+                        <span class="afop-btn-text"><?php echo $phone_blocked ? esc_html__('Blocked', 'advance-fake-order-protector') : esc_html__('Block Phone', 'advance-fake-order-protector'); ?></span>
+                    </button>
+                <?php endif; ?>
+
+                <?php if (!empty($client_ip)): ?>
+                    <!-- IP Block Box -->
+                    <button type="button" 
+                            class="afop-btn-box afop-toggle-block-btn <?php echo $ip_blocked ? 'is-blocked' : 'is-safe'; ?>" 
+                            data-type="ip" 
+                            data-value="<?php echo esc_attr($client_ip); ?>"
+                            title="<?php echo $ip_blocked ? esc_attr__('Click to Unblock IP', 'advance-fake-order-protector') : esc_attr__('Click to Block IP', 'advance-fake-order-protector'); ?>">
+                        <span class="afop-btn-icon"><i class="fa-solid <?php echo $ip_blocked ? 'fa-ban' : 'fa-globe'; ?>"></i></span>
+                        <span class="afop-btn-text"><?php echo $ip_blocked ? esc_html__('IP Blocked', 'advance-fake-order-protector') : esc_html__('Block IP', 'advance-fake-order-protector'); ?></span>
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
         <?php
     }
@@ -361,42 +444,98 @@ class AFOP_Admin {
 
         $phone_blocked = !empty($normalized_phone) ? AFOP_Blocklist::is_blocked('phone', $normalized_phone) : false;
         $ip_blocked = !empty($client_ip) ? AFOP_Blocklist::is_blocked('ip', $client_ip) : false;
+
+        $courier_stat = !empty($normalized_phone) ? AFOP_Courier_Checker::get_quick_courier_stat($normalized_phone) : null;
+        $has_data = !empty($courier_stat) && isset($courier_stat['delivery_rate']);
+        $rate_num = $has_data ? round(floatval($courier_stat['delivery_rate'])) : 0;
+        $total_orders = $has_data && isset($courier_stat['total_orders']) ? intval($courier_stat['total_orders']) : 0;
+        $delivered = $has_data && isset($courier_stat['delivered']) ? intval($courier_stat['delivered']) : 0;
+        $returned = $has_data && isset($courier_stat['returned']) ? intval($courier_stat['returned']) : 0;
+
+        $risk_level = 'neutral';
+        $risk_label = __('Check Ratio', 'advance-fake-order-protector');
+
+        if ($has_data) {
+            if (isset($courier_stat['risk_level'])) {
+                $risk_level = $courier_stat['risk_level'];
+            } elseif ($rate_num >= 75) {
+                $risk_level = 'safe';
+            } elseif ($rate_num >= 50) {
+                $risk_level = 'medium';
+            } else {
+                $risk_level = 'high';
+            }
+
+            if ($risk_level === 'safe') {
+                $risk_label = __('Safe Customer', 'advance-fake-order-protector');
+            } elseif ($risk_level === 'medium') {
+                $risk_label = __('Medium Risk', 'advance-fake-order-protector');
+            } else {
+                $risk_label = __('High Risk', 'advance-fake-order-protector');
+            }
+        }
         ?>
         <div class="afop-meta-box-wrap">
             <div class="afop-meta-row">
                 <span class="afop-meta-label"><i class="fa-solid fa-phone"></i> <strong>Phone:</strong> <?php echo esc_html($phone ?: 'N/A'); ?></span>
                 <?php if (!empty($normalized_phone)): ?>
                     <button type="button" 
-                            class="afop-btn-action afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
+                            class="afop-btn-box afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
                             data-type="phone" 
                             data-value="<?php echo esc_attr($normalized_phone); ?>">
-                        <span><i class="fa-solid <?php echo $phone_blocked ? 'fa-unlock' : 'fa-ban'; ?>"></i> <?php echo $phone_blocked ? 'Unblock Phone' : 'Block Phone'; ?></span>
+                        <span class="afop-btn-icon"><i class="fa-solid <?php echo $phone_blocked ? 'fa-ban' : 'fa-phone-slash'; ?>"></i></span>
+                        <span class="afop-btn-text"><?php echo $phone_blocked ? 'Unblock Phone' : 'Block Phone'; ?></span>
                     </button>
                 <?php endif; ?>
             </div>
 
             <div class="afop-meta-row">
-                <span class="afop-meta-label"><i class="fa-solid fa-globe"></i> <strong>IP Address:</strong> <?php echo esc_html($client_ip ?: 'N/A'); ?></span>
+                <span class="afop-meta-label"><i class="fa-solid fa-globe"></i> <strong>IP:</strong> <?php echo esc_html($client_ip ?: 'N/A'); ?></span>
                 <?php if (!empty($client_ip)): ?>
                     <button type="button" 
-                            class="afop-btn-action afop-toggle-block-btn <?php echo $ip_blocked ? 'is-blocked' : 'is-safe'; ?>" 
+                            class="afop-btn-box afop-toggle-block-btn <?php echo $ip_blocked ? 'is-blocked' : 'is-safe'; ?>" 
                             data-type="ip" 
                             data-value="<?php echo esc_attr($client_ip); ?>">
-                        <span><i class="fa-solid <?php echo $ip_blocked ? 'fa-unlock' : 'fa-ban'; ?>"></i> <?php echo $ip_blocked ? 'Unblock IP' : 'Block IP'; ?></span>
+                        <span class="afop-btn-icon"><i class="fa-solid <?php echo $ip_blocked ? 'fa-ban' : 'fa-globe'; ?>"></i></span>
+                        <span class="afop-btn-text"><?php echo $ip_blocked ? 'Unblock IP' : 'Block IP'; ?></span>
                     </button>
                 <?php endif; ?>
             </div>
 
             <?php if (!empty($normalized_phone)): ?>
-                <div class="afop-meta-row" style="margin-top: 12px;">
-                    <button type="button" 
-                            class="button button-primary afop-check-courier-btn" 
-                            style="width: 100%; text-align: center;"
-                            data-phone="<?php echo esc_attr($normalized_phone); ?>"
-                            data-name="<?php echo esc_attr($customer_name); ?>">
-                        <i class="fa-solid fa-chart-pie"></i> <?php esc_html_e('Check Courier Delivery Ratio', 'advance-fake-order-protector'); ?>
-                    </button>
-                </div>
+                <!-- Courier Ratio Mini Card in Meta Box -->
+                <button type="button" 
+                        class="afop-courier-mini-graph afop-check-courier-btn risk-<?php echo esc_attr($risk_level); ?>" 
+                        style="margin-top: 12px; width: 100%;"
+                        data-phone="<?php echo esc_attr($normalized_phone); ?>" 
+                        data-name="<?php echo esc_attr($customer_name); ?>"
+                        title="<?php esc_attr_e('Click to open full Courier Intelligence report', 'advance-fake-order-protector'); ?>">
+                    <div class="afop-mini-chart-ring">
+                        <svg viewBox="0 0 36 36" class="afop-circular-chart">
+                            <path class="afop-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="afop-circle-progress" stroke-dasharray="<?php echo $has_data ? $rate_num : '0'; ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                        <span class="afop-mini-chart-percent"><?php echo $has_data ? ($rate_num . '%') : '<i class="fa-solid fa-chart-pie"></i>'; ?></span>
+                    </div>
+                    <div class="afop-mini-graph-info">
+                        <div class="afop-mini-graph-header">
+                            <span class="afop-mini-rate-text"><?php echo $has_data ? sprintf(__('%d%% Delivery Rate', 'advance-fake-order-protector'), $rate_num) : __('Check Delivery Ratio', 'advance-fake-order-protector'); ?></span>
+                            <span class="afop-mini-risk-tag tag-<?php echo esc_attr($risk_level); ?>"><?php echo esc_html($risk_label); ?></span>
+                        </div>
+                        <div class="afop-mini-bar-track">
+                            <div class="afop-mini-bar-fill fill-<?php echo esc_attr($risk_level); ?>" style="width: <?php echo $has_data ? $rate_num : '0'; ?>%;"></div>
+                        </div>
+                        <div class="afop-mini-graph-sub">
+                            <?php if ($has_data): ?>
+                                <span><i class="fa-solid fa-check"></i> <?php echo intval($delivered); ?> Deliv</span>
+                                <span><i class="fa-solid fa-rotate-left"></i> <?php echo intval($returned); ?> Return</span>
+                                <span>(<?php echo intval($total_orders); ?> Total)</span>
+                            <?php else: ?>
+                                <span><i class="fa-solid fa-bolt"></i> <?php esc_html_e('Click to check intelligence', 'advance-fake-order-protector'); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </button>
             <?php endif; ?>
         </div>
         <?php

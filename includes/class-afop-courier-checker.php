@@ -18,6 +18,46 @@ class AFOP_Courier_Checker {
     }
 
     /**
+     * Get quick/cached courier stats for WooCommerce orders table column rendering (non-blocking)
+     *
+     * @param string $phone
+     * @return array|null
+     */
+    public static function get_quick_courier_stat($phone) {
+        $normalized_phone = AFOP_Validator::normalize_phone($phone);
+
+        if (empty($normalized_phone)) {
+            return null;
+        }
+
+        $provider = get_option('afop_courier_provider', 'bdcourier');
+
+        // Check local DB cache first (ultra-fast indexed query)
+        $cached = self::get_cached_stats($normalized_phone, $provider);
+        if ($cached) {
+            $cached['is_blocked'] = AFOP_Blocklist::is_blocked('phone', $normalized_phone);
+            return $cached;
+        }
+
+        // Check if API key is configured for the active provider
+        $has_key = false;
+        if ($provider === 'steadfast') {
+            $has_key = !empty(trim(get_option('afop_steadfast_api_key', '')));
+        } elseif ($provider === 'fraudbd') {
+            $has_key = !empty(trim(get_option('afop_fraudbd_api_key', '')));
+        } else {
+            $has_key = !empty(trim(get_option('afop_bdcourier_api_key', '')));
+        }
+
+        // If no API key configured, use simulated demo stats so preview graph renders instantly
+        if (!$has_key) {
+            return self::get_demo_stats($normalized_phone, $provider);
+        }
+
+        return null;
+    }
+
+    /**
      * Fetch courier stats for a given phone number
      *
      * @param string $phone

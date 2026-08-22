@@ -4,7 +4,7 @@
 ![WooCommerce](https://img.shields.io/badge/WooCommerce-5.0%2B-purple.svg)
 ![HPOS Compatible](https://img.shields.io/badge/HPOS-Compatible-success.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.4%20|%208.0%20|%208.1%20|%208.2-8892BF.svg)
-![Version](https://img.shields.io/badge/Version-1.3.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/Version-1.4.0-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPLv2-green.svg)
 
 **SARKAR IT Fake protection** is an all-in-one WooCommerce security, fraud prevention, incomplete order recovery, and courier delivery ratio analytics plugin tailored specifically for Bangladeshi e-commerce stores.
@@ -19,34 +19,31 @@
 * **Strict Fake Pattern Filter:** Detects and blocks obvious fake/dummy numbers (e.g., `01700000000`, `01711111111`, `01234567890`).
 * **Interactive Frontend Modal:** Triggers a modern alert popup (`"আপনার নম্বরটি ভুল। দয়া করে সঠিক নম্বর লিখুন।"`) and auto-focuses on the phone field.
 
-### ⛔ 2. One-Click IP & Phone Blocklist
-* **Orders Table Actions:** 1-click `[ 📞 Block Phone / 🚫 Blocked ]` and `[ 🌐 Block IP / 🚫 IP Blocked ]` toggle buttons directly inside the WooCommerce Orders list.
+### ⛔ 2. One-Click IP & Phone Blocklist (Compact Actions)
+* **Dedicated Security Actions Column:** 1-click compact `[ 📞 Block Phone / 🚫 Blocked ]` and `[ 🌐 Block IP / 🚫 IP Blocked ]` box buttons in a side-by-side layout directly inside WooCommerce Orders table.
 * **Instant AJAX Updates:** Page does not reload; instant toast alerts appear at the bottom right.
 * **Checkout Defense & WhatsApp Redirection:** Blocked visitors cannot place orders and are presented with a support modal with a direct **WhatsApp Chat** button.
 * **Blocklist Manager:** Dedicated admin panel to view, search, add, or delete blocked records.
 
-### 📦 3. Ordered Products Column in Orders Table
+### 📊 3. Dedicated Courier Delivery Ratio Column & Live Mini Graph
+* **Live In-Table Mini Gauge Graph:** SVG Circular Gauge chart with exact delivery percentage (e.g. `88% Delivery`), color-coded risk badge (🟢 Safe, 🟡 Medium, 🔴 Risky), and success vs return count (`✓ 15  ↺ 2`).
+* **Dedicated Separate Column:** Dedicated WooCommerce Orders column prevents table row crowding and keeps rows slim.
+* **Non-Bubbling Interaction:** Clicking the mini graph opens the full multi-courier modal with zero page redirects.
+* **Supported Courier APIs:** **BD Courier API**, **Steadfast API**, and **FraudBD API** with multi-provider tabs and Pathao rating analysis.
+
+### 📦 4. Ordered Products Column in Orders Table
 * Shows ordered product **thumbnails/images**, **product title with direct clickable link** to view/edit the product, and **quantities** (`× 2`) directly in the WooCommerce Orders list table.
 
-### 🔁 4. Repeat / Duplicate Order Protection
+### 🔁 5. Repeat / Duplicate Order Protection
 * **Accidental Order Blocker:** Detects if the same customer (matching phone or IP) is ordering the same product(s) within a configurable time interval (e.g. 60 minutes).
 * **Interactive Confirm / Cancel Popup:** Prompt: `"আপনি {X} মিনিট আগে এই প্রোডাক্টটি অর্ডার করেছিলেন। আপনি কি আবার এই একই প্রোডাক্ট অর্ডার করতে চান?"`
   * **Confirm:** Completes the order.
   * **Cancel:** Cancels duplicate submission.
 
-### 🛒 5. Real-Time Incomplete Order Capture (Abandoned Leads)
+### 🛒 6. Real-Time Incomplete Order Capture (Abandoned Leads)
 * **11-Digit Phone Trigger:** Captures checkout lead data via AJAX debounce **only when an 11-digit phone number is typed**. Does not capture incomplete leads without a phone number.
 * **Auto-Conversion / Cleanup:** Automatically converts/removes incomplete records when the customer successfully places the order.
 * **Incomplete Orders Dashboard:** View customer leads with 1-click **Call** and **WhatsApp** direct message buttons, cart thumbnails, item quantities, and total amount.
-
-### 📊 6. Courier Delivery Ratio & Fraud Checker
-* **Supported Courier APIs:** **BD Courier API**, **Steadfast API**, and **FraudBD API**.
-* **Visual Ratio Modal:** Click `[ 📊 Courier Ratio ]` in the orders table to view:
-  * Circular Delivery Success Gauge & Return Percentage.
-  * Delivered, Returned, and Total parcel counts.
-  * Risk Level Badge: 🟢 Safe Customer, 🟡 Medium Return Risk, 🔴 High Risk Alert.
-  * Courier-wise breakdown table (Steadfast, Pathao, RedX, etc.).
-  * 1-click button to block phone directly from inside the modal.
 
 ---
 
