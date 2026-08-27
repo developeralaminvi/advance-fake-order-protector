@@ -4,7 +4,7 @@
 ![WooCommerce](https://img.shields.io/badge/WooCommerce-5.0%2B-purple.svg)
 ![HPOS Compatible](https://img.shields.io/badge/HPOS-Compatible-success.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.4%20|%208.0%20|%208.1%20|%208.2-8892BF.svg)
-![Version](https://img.shields.io/badge/Version-1.4.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPLv2-green.svg)
 
 **SARKAR IT Fake protection** is an all-in-one WooCommerce security, fraud prevention, incomplete order recovery, and courier delivery ratio analytics plugin tailored specifically for Bangladeshi e-commerce stores.

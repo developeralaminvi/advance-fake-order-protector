@@ -218,4 +218,113 @@ class AFOP_Repeat_Order {
             wc_add_notice(esc_html($msg), 'error');
         }
     }
+
+    /**
+     * Get all store orders placed by a customer phone number (HPOS + CPT + AFOP history)
+     *
+     * @param string $phone
+     * @return array
+     */
+    public static function get_orders_by_phone($phone) {
+        $normalized_phone = AFOP_Validator::normalize_phone($phone);
+        if (empty($normalized_phone)) {
+            return array();
+        }
+
+        $clean = preg_replace('/[^0-9]/', '', $normalized_phone);
+        $short = (substr($clean, 0, 2) === '88' && strlen($clean) === 13) ? substr($clean, 2) : $clean;
+
+        global $wpdb;
+        $order_ids = array();
+
+        // 1. Check HPOS table if HPOS is active
+        if (class_exists('\Automattic\WooCommerce\Utilities\OrderUtil') && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled()) {
+            $table_addresses = $wpdb->prefix . 'wc_order_addresses';
+            if ($wpdb->get_var("SHOW TABLES LIKE '{$table_addresses}'") === $table_addresses) {
+                $sql = $wpdb->prepare(
+                    "SELECT DISTINCT order_id FROM {$table_addresses} WHERE address_type = 'billing' AND (phone LIKE %s OR phone LIKE %s)",
+                    '%' . $wpdb->esc_like($short) . '%',
+                    '%' . $wpdb->esc_like($clean) . '%'
+                );
+                $hpos_ids = $wpdb->get_col($sql);
+                if (!empty($hpos_ids)) {
+                    $order_ids = array_merge($order_ids, $hpos_ids);
+                }
+            }
+        }
+
+        // 2. Check Postmeta table (Classic CPT or fallback)
+        $sql = $wpdb->prepare(
+            "SELECT DISTINCT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key = '_billing_phone' AND (meta_value LIKE %s OR meta_value LIKE %s)",
+            '%' . $wpdb->esc_like($short) . '%',
+            '%' . $wpdb->esc_like($clean) . '%'
+        );
+        $cpt_ids = $wpdb->get_col($sql);
+        if (!empty($cpt_ids)) {
+            $order_ids = array_merge($order_ids, $cpt_ids);
+        }
+
+        // 3. Check afop_order_history table as backup
+        $table_history = $wpdb->prefix . 'afop_order_history';
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_history}'") === $table_history) {
+            $sql = $wpdb->prepare(
+                "SELECT DISTINCT order_id FROM {$table_history} WHERE phone = %s OR phone = %s",
+                $short,
+                $clean
+            );
+            $history_ids = $wpdb->get_col($sql);
+            if (!empty($history_ids)) {
+                $order_ids = array_merge($order_ids, $history_ids);
+            }
+        }
+
+        $order_ids = array_unique(array_filter(array_map('intval', $order_ids)));
+
+        if (empty($order_ids)) {
+            return array();
+        }
+
+        $orders_data = array();
+        foreach ($order_ids as $id) {
+            $order = wc_get_order($id);
+            if (!$order) {
+                continue;
+            }
+
+            $items = array();
+            foreach ($order->get_items() as $item) {
+                $items[] = array(
+                    'name' => $item->get_name(),
+                    'qty'  => $item->get_quantity()
+                );
+            }
+
+            $edit_url = get_edit_post_link($id);
+            if (empty($edit_url)) {
+                $edit_url = admin_url('admin.php?page=wc-orders&action=edit&id=' . $id);
+            }
+
+            $date_obj = $order->get_date_created();
+            $date_str = $date_obj ? $date_obj->date_i18n('Y-m-d H:i') : '';
+
+            $orders_data[] = array(
+                'id'           => $id,
+                'number'       => $order->get_order_number(),
+                'date'         => $date_str,
+                'status'       => $order->get_status(),
+                'status_name'  => wc_get_order_status_name($order->get_status()),
+                'total'        => $order->get_formatted_order_total(),
+                'raw_total'    => floatval($order->get_total()),
+                'items'        => $items,
+                'edit_url'     => $edit_url
+            );
+        }
+
+        // Sort newest orders first
+        usort($orders_data, function($a, $b) {
+            return strcmp($b['date'], $a['date']);
+        });
+
+        return $orders_data;
+    }
 }

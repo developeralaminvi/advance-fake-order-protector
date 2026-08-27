@@ -144,11 +144,16 @@ class AFOP_Activator {
             'afop_enable_incomplete_capture'=> 'yes',
             'afop_incomplete_retention_days'=> 30,
 
-            'afop_courier_provider'         => 'bdcourier', // 'bdcourier', 'steadfast', 'fraudbd'
+            'afop_courier_provider'         => 'bdcourier', // 'bdcourier', 'steadfast', 'fraudbd', 'pathao'
             'afop_bdcourier_api_key'        => '',
             'afop_steadfast_api_key'        => '',
             'afop_steadfast_secret_key'     => '',
             'afop_fraudbd_api_key'          => '',
+            'afop_pathao_base_url'          => 'https://courier-api-sandbox.pathao.com',
+            'afop_pathao_client_id'         => '',
+            'afop_pathao_client_secret'     => '',
+            'afop_pathao_username'          => '',
+            'afop_pathao_password'          => '',
             'afop_courier_cache_hours'      => 24
         );
 

@@ -45,6 +45,8 @@ class AFOP_Courier_Checker {
             $has_key = !empty(trim(get_option('afop_steadfast_api_key', '')));
         } elseif ($provider === 'fraudbd') {
             $has_key = !empty(trim(get_option('afop_fraudbd_api_key', '')));
+        } elseif ($provider === 'pathao') {
+            $has_key = !empty(trim(get_option('afop_pathao_client_id', ''))) && !empty(trim(get_option('afop_pathao_client_secret', '')));
         } else {
             $has_key = !empty(trim(get_option('afop_bdcourier_api_key', '')));
         }
@@ -95,6 +97,8 @@ class AFOP_Courier_Checker {
             $stats = self::fetch_steadfast_stats($normalized_phone);
         } elseif ($provider === 'fraudbd') {
             $stats = self::fetch_fraudbd_stats($normalized_phone);
+        } elseif ($provider === 'pathao') {
+            $stats = self::fetch_pathao_stats($normalized_phone);
         } else {
             $stats = self::fetch_bdcourier_stats($normalized_phone);
         }
@@ -113,6 +117,215 @@ class AFOP_Courier_Checker {
         $stats['from_cache'] = false;
 
         return $stats;
+    }
+
+    /**
+     * Issue or retrieve cached Pathao OAuth Access Token
+     * Uses OAuth 2.0 grant_type password / refresh_token as documented in Pathao Courier Merchant API
+     */
+    public static function get_pathao_access_token() {
+        $client_id     = trim(get_option('afop_pathao_client_id', ''));
+        $client_secret = trim(get_option('afop_pathao_client_secret', ''));
+        $username      = trim(get_option('afop_pathao_username', ''));
+        $password      = trim(get_option('afop_pathao_password', ''));
+        $base_url      = rtrim(trim(get_option('afop_pathao_base_url', 'https://courier-api-sandbox.pathao.com')), '/');
+
+        if (empty($client_id) || empty($client_secret) || empty($username) || empty($password)) {
+            return new WP_Error('missing_credentials', __('Pathao API Credentials missing. Please enter Client ID, Secret, Username and Password in Settings.', 'advance-fake-order-protector'));
+        }
+
+        // Check stored token in option
+        $token_data = get_option('afop_pathao_token_data', array());
+        $now = time();
+
+        // If access token is valid (with 5-minute safety buffer), return it
+        if (!empty($token_data['access_token']) && !empty($token_data['expires_at']) && ($token_data['expires_at'] - 300) > $now) {
+            return $token_data['access_token'];
+        }
+
+        $endpoint = $base_url . '/aladdin/api/v1/issue-token';
+
+        // Try refresh token if available
+        if (!empty($token_data['refresh_token'])) {
+            $refresh_payload = array(
+                'client_id'     => $client_id,
+                'client_secret' => $client_secret,
+                'grant_type'    => 'refresh_token',
+                'refresh_token' => $token_data['refresh_token']
+            );
+
+            $response = wp_remote_post($endpoint, array(
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                    'Accept'       => 'application/json'
+                ),
+                'body'    => wp_json_encode($refresh_payload),
+                'timeout' => 15
+            ));
+
+            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                $body = json_decode(wp_remote_retrieve_body($response), true);
+                if (!empty($body['access_token'])) {
+                    $expires_in = isset($body['expires_in']) ? intval($body['expires_in']) : 432000;
+                    $token_info = array(
+                        'access_token'  => $body['access_token'],
+                        'refresh_token' => isset($body['refresh_token']) ? $body['refresh_token'] : $token_data['refresh_token'],
+                        'expires_at'    => time() + $expires_in
+                    );
+                    update_option('afop_pathao_token_data', $token_info);
+                    return $body['access_token'];
+                }
+            }
+        }
+
+        // Fallback to issuing new token using grant_type password
+        $payload = array(
+            'client_id'     => $client_id,
+            'client_secret' => $client_secret,
+            'grant_type'    => 'password',
+            'username'      => $username,
+            'password'      => $password
+        );
+
+        $response = wp_remote_post($endpoint, array(
+            'headers' => array(
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json'
+            ),
+            'body'    => wp_json_encode($payload),
+            'timeout' => 15
+        ));
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code !== 200 || empty($body['access_token'])) {
+            $err_msg = isset($body['message']) ? $body['message'] : (isset($body['error']) ? $body['error'] : __('Failed to issue Pathao access token.', 'advance-fake-order-protector'));
+            return new WP_Error('pathao_auth_error', 'Pathao Auth Error: ' . $err_msg);
+        }
+
+        $expires_in = isset($body['expires_in']) ? intval($body['expires_in']) : 432000;
+        $token_info = array(
+            'access_token'  => $body['access_token'],
+            'refresh_token' => isset($body['refresh_token']) ? $body['refresh_token'] : '',
+            'expires_at'    => time() + $expires_in
+        );
+
+        update_option('afop_pathao_token_data', $token_info);
+        return $body['access_token'];
+    }
+
+    /**
+     * Fetch customer fraud & delivery ratio stats from Pathao Courier API
+     */
+    private static function fetch_pathao_stats($phone) {
+        $token = self::get_pathao_access_token();
+
+        if (is_wp_error($token)) {
+            return array(
+                'success' => false,
+                'message' => $token->get_error_message()
+            );
+        }
+
+        $clean_phone = preg_replace('/[^0-9]/', '', $phone);
+        if (substr($clean_phone, 0, 2) === '88' && strlen($clean_phone) === 13) {
+            $clean_phone = substr($clean_phone, 2);
+        }
+
+        $base_url = rtrim(trim(get_option('afop_pathao_base_url', 'https://courier-api-sandbox.pathao.com')), '/');
+        $endpoint = $base_url . '/aladdin/api/v1/user/success-rate';
+
+        $response = wp_remote_post($endpoint, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json'
+            ),
+            'body'    => wp_json_encode(array('phone' => $clean_phone)),
+            'timeout' => 15
+        ));
+
+        if (is_wp_error($response)) {
+            return array(
+                'success' => false,
+                'message' => 'Pathao API Error: ' . $response->get_error_message()
+            );
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code === 401) {
+            delete_option('afop_pathao_token_data');
+            return array(
+                'success' => false,
+                'message' => __('Pathao token expired. Please try again.', 'advance-fake-order-protector')
+            );
+        }
+
+        return self::format_pathao_response($clean_phone, $body);
+    }
+
+    /**
+     * Standardize Pathao API response into unified schema
+     */
+    private static function format_pathao_response($phone, $raw) {
+        $total_orders = 0;
+        $delivered    = 0;
+        $returned     = 0;
+        $risk_level   = 'safe';
+        $couriers     = array();
+
+        if (!empty($raw['data'])) {
+            $data = $raw['data'];
+            $total_orders = isset($data['total_orders']) ? intval($data['total_orders']) : (isset($data['total_parcel']) ? intval($data['total_parcel']) : 0);
+            $delivered    = isset($data['delivered_orders']) ? intval($data['delivered_orders']) : (isset($data['delivered']) ? intval($data['delivered']) : (isset($data['success_parcel']) ? intval($data['success_parcel']) : 0));
+            $returned     = isset($data['returned_orders']) ? intval($data['returned_orders']) : (isset($data['returned']) ? intval($data['returned']) : (isset($data['cancelled_parcel']) ? intval($data['cancelled_parcel']) : 0));
+        }
+
+        if ($total_orders == 0 && ($delivered > 0 || $returned > 0)) {
+            $total_orders = $delivered + $returned;
+        }
+
+        $delivery_rate = ($total_orders > 0) ? round(($delivered / $total_orders) * 100, 1) : 0;
+        $return_rate   = ($total_orders > 0) ? round(($returned / $total_orders) * 100, 1) : 0;
+
+        if ($total_orders > 0) {
+            if ($return_rate >= 30 || $delivery_rate < 65) {
+                $risk_level = 'high';
+            } elseif ($return_rate >= 15 || $delivery_rate < 80) {
+                $risk_level = 'medium';
+            }
+        }
+
+        $couriers[] = array(
+            'name'      => 'Pathao Courier',
+            'data_type' => 'delivery',
+            'total'     => $total_orders,
+            'delivered' => $delivered,
+            'returned'  => $returned
+        );
+
+        return array(
+            'success'        => true,
+            'phone'          => $phone,
+            'provider'       => 'Pathao Courier API',
+            'provider_key'   => 'pathao',
+            'total_orders'   => $total_orders,
+            'delivered'      => $delivered,
+            'returned'       => $returned,
+            'cancelled'      => $returned,
+            'delivery_rate'  => $delivery_rate,
+            'return_rate'    => $return_rate,
+            'risk_level'     => $risk_level,
+            'couriers'       => $couriers,
+            'raw_data'       => $raw
+        );
     }
 
     /**
@@ -461,7 +674,8 @@ class AFOP_Courier_Checker {
         $provider_labels = array(
             'bdcourier' => 'BD Courier API (api.bdcourier.com)',
             'steadfast' => 'Steadfast Courier API',
-            'fraudbd'   => 'FraudBD API (fraudbd.com)'
+            'fraudbd'   => 'FraudBD API (fraudbd.com)',
+            'pathao'    => 'Pathao Courier API (pathao.com)'
         );
 
         $p_label = isset($provider_labels[$provider]) ? $provider_labels[$provider] : ucfirst($provider);
@@ -558,11 +772,12 @@ class AFOP_Courier_Checker {
         }
 
         if ($provider === 'all' || empty($provider)) {
-            // Return all 3 providers for multi-tab rendering
+            // Return all 4 providers for multi-tab rendering
             $providers_data = array(
                 'bdcourier' => self::get_delivery_stats($phone, $force, 'bdcourier'),
                 'steadfast' => self::get_delivery_stats($phone, $force, 'steadfast'),
-                'fraudbd'   => self::get_delivery_stats($phone, $force, 'fraudbd')
+                'fraudbd'   => self::get_delivery_stats($phone, $force, 'fraudbd'),
+                'pathao'    => self::get_delivery_stats($phone, $force, 'pathao')
             );
 
             wp_send_json_success(array(
@@ -594,7 +809,14 @@ class AFOP_Courier_Checker {
         $active_provider = get_option('afop_courier_provider', 'bdcourier');
         $test_phone = '01712345678';
 
-        if ($active_provider === 'fraudbd') {
+        if ($active_provider === 'pathao') {
+            $token = self::get_pathao_access_token();
+            if (is_wp_error($token)) {
+                wp_send_json_error(array('message' => $token->get_error_message()));
+            } else {
+                wp_send_json_success(array('message' => __('Pathao Courier API Connected Successfully! Access Token issued.', 'advance-fake-order-protector')));
+            }
+        } elseif ($active_provider === 'fraudbd') {
             $api_key = trim(get_option('afop_fraudbd_api_key', ''));
             if (empty($api_key)) {
                 wp_send_json_error(array('message' => __('FraudBD API Key is missing. Please enter your API key first.', 'advance-fake-order-protector')));

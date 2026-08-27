@@ -464,6 +464,49 @@ button.afop-courier-mini-graph:hover,
 .afop-mini-graph-sub i.fa-check { color: #16a34a; }
 .afop-mini-graph-sub i.fa-rotate-left { color: #dc2626; }
 
+/* Phone Display Row & Customer Store Orders Button Badge */
+.afop-phone-display-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.afop-customer-orders-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    background: #f1f5f9;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.afop-customer-orders-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+    transform: translateY(-1px);
+}
+
+.afop-customer-orders-btn.has-multiple {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #ffffff;
+    border-color: #4338ca;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+}
+
+.afop-customer-orders-btn.has-multiple:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+    box-shadow: 0 3px 8px rgba(99, 102, 241, 0.4);
+}
+
 /* Compact Action Boxes Row (Side by Side) */
 .afop-action-boxes-row {
     display: flex;

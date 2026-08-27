@@ -105,8 +105,28 @@
             });
 
             // Prevent WooCommerce Orders Table row click redirection when clicking our custom columns/actions
-            $(document).on('click', '.column-afop_courier_ratio, .column-afop_security_actions, .afop-courier-mini-graph, .afop-order-actions-wrap, .afop-toggle-block-btn, .afop-phone-pill-link', function (e) {
+            $(document).on('click', '.column-afop_courier_ratio, .column-afop_security_actions, .afop-courier-mini-graph, .afop-order-actions-wrap, .afop-toggle-block-btn, .afop-phone-pill-link, .afop-customer-orders-btn', function (e) {
                 e.stopPropagation();
+            });
+
+            // Open Customer Store Orders Modal
+            $(document).on('click', '.afop-customer-orders-btn', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                var phone = $(this).data('phone');
+                var name = $(this).data('name') || 'Customer';
+
+                if (!phone) return false;
+
+                self.openCustomerOrdersModal(phone, name);
+                return false;
+            });
+
+            // Close Customer Store Orders Modal
+            $(document).on('click', '#afop-close-cust-orders-modal, #afop-modal-close-cust-orders-btn', function () {
+                $('#afop-admin-customer-orders-modal').fadeOut(200);
             });
 
             // Courier Provider Tabs Switch
@@ -600,6 +620,84 @@
                     $miniCard.find('.afop-mini-graph-sub').html('<span><i class="fa-solid fa-check"></i> ' + (data.delivered || 0) + '</span> <span><i class="fa-solid fa-rotate-left"></i> ' + (data.returned || 0) + '</span> <span>(' + (data.total_orders || 0) + ')</span>');
                 }
             }
+        },
+
+        openCustomerOrdersModal: function (phone, name) {
+            var self = this;
+            var $modal = $('#afop-admin-customer-orders-modal');
+            var $loading = $('#afop-cust-orders-loading');
+            var $content = $('#afop-cust-orders-content');
+
+            $('#afop-cust-orders-title').text(name || 'Customer');
+            $('#afop-cust-orders-phone-badge').html('<i class="fa-solid fa-phone"></i> ' + phone);
+
+            $modal.fadeIn(200);
+            $loading.show();
+            $content.hide();
+
+            $.ajax({
+                url: afop_admin_data.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'afop_get_customer_orders_ajax',
+                    nonce: afop_admin_data.nonce,
+                    phone: phone
+                },
+                success: function (res) {
+                    $loading.hide();
+                    if (res.success && res.data) {
+                        $('#afop-cust-orders-count-val').text(res.data.order_count || 0);
+                        $('#afop-cust-orders-spent-val').html(res.data.formatted_spent || '৳ 0');
+
+                        var $tbody = $('#afop-cust-orders-tbody');
+                        $tbody.empty();
+
+                        if (res.data.orders && res.data.orders.length > 0) {
+                            $.each(res.data.orders, function (i, o) {
+                                var statusClass = 'background: #e2e8f0; color: #334155;';
+                                if (o.status === 'completed') {
+                                    statusClass = 'background: #dcfce7; color: #166534;';
+                                } else if (o.status === 'processing') {
+                                    statusClass = 'background: #dbeafe; color: #1e40af;';
+                                } else if (o.status === 'cancelled' || o.status === 'failed' || o.status === 'refunded') {
+                                    statusClass = 'background: #fee2e2; color: #991b1b;';
+                                }
+
+                                var itemsHtml = '';
+                                if (o.items && o.items.length > 0) {
+                                    itemsHtml = $.map(o.items, function (it) {
+                                        return '<span style="display: block; font-size: 11.5px; color: #334155;">&bull; ' + it.name + ' <strong>(&times;' + it.qty + ')</strong></span>';
+                                    }).join('');
+                                } else {
+                                    itemsHtml = '<span style="color: #94a3b8; font-size: 11px;">No details</span>';
+                                }
+
+                                var rowHtml = '<tr>' +
+                                    '<td><strong>#' + o.number + '</strong></td>' +
+                                    '<td><span style="font-size: 11.5px; color: #64748b;">' + o.date + '</span></td>' +
+                                    '<td><span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; ' + statusClass + '">' + o.status_name + '</span></td>' +
+                                    '<td>' + itemsHtml + '</td>' +
+                                    '<td><strong>' + o.total + '</strong></td>' +
+                                    '<td><a href="' + o.edit_url + '" target="_blank" class="button button-small"><i class="fa-solid fa-arrow-up-right-from-square"></i> View</a></td>' +
+                                    '</tr>';
+                                $tbody.append(rowHtml);
+                            });
+                        } else {
+                            $tbody.append('<tr><td colspan="6" style="text-align: center; color: #64748b;">No orders found for this customer</td></tr>');
+                        }
+
+                        $content.fadeIn(200);
+                    } else {
+                        self.showToast(res.data ? res.data.message : 'Error fetching order history.', 'error');
+                        $modal.fadeOut(200);
+                    }
+                },
+                error: function () {
+                    $loading.hide();
+                    self.showToast('Network error fetching order history.', 'error');
+                    $modal.fadeOut(200);
+                }
+            });
         },
 
         showToast: function (msg, type) {

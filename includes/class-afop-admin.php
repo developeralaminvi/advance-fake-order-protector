@@ -27,11 +27,14 @@ class AFOP_Admin {
         // Single Order Edit Meta Box
         add_action('add_meta_boxes', array($this, 'register_order_meta_box'));
 
-        // Admin Footer Courier Modal
+        // Admin Footer Courier Modal & Customer Orders Modal
         add_action('admin_footer', array($this, 'render_admin_courier_modal'));
 
         // Save Settings Handler
         add_action('admin_init', array($this, 'handle_save_settings'));
+
+        // Customer Store Orders AJAX
+        add_action('wp_ajax_afop_get_customer_orders_ajax', array($this, 'ajax_get_customer_orders'));
     }
 
     /**
@@ -360,17 +363,30 @@ class AFOP_Admin {
         $phone = $order->get_billing_phone();
         $normalized_phone = AFOP_Validator::normalize_phone($phone);
         $client_ip = $order->get_customer_ip_address();
+        $customer_name = $order->get_formatted_billing_full_name() ?: 'Customer';
 
         $phone_blocked = !empty($normalized_phone) ? AFOP_Blocklist::is_blocked('phone', $normalized_phone) : false;
         $ip_blocked = !empty($client_ip) ? AFOP_Blocklist::is_blocked('ip', $client_ip) : false;
+
+        $customer_orders = !empty($normalized_phone) ? AFOP_Repeat_Order::get_orders_by_phone($normalized_phone) : array();
+        $order_count = count($customer_orders);
         ?>
         <div class="afop-order-actions-wrap" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
             <?php if (!empty($normalized_phone)): ?>
-                <!-- Phone Display Pill -->
+                <!-- Phone Display Pill with Store Orders Badge -->
                 <div class="afop-phone-display-row">
                     <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
                         <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
                     </a>
+
+                    <button type="button" 
+                            class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
+                            data-phone="<?php echo esc_attr($normalized_phone); ?>" 
+                            data-name="<?php echo esc_attr($customer_name); ?>"
+                            title="<?php esc_attr_e('Click to view all store orders for this customer', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-boxes-packing"></i> 
+                        <span><?php echo intval($order_count); ?> <?php echo $order_count === 1 ? 'Order' : 'Orders'; ?></span>
+                    </button>
                 </div>
             <?php endif; ?>
 
@@ -557,7 +573,7 @@ class AFOP_Admin {
                     <button type="button" class="afop-admin-modal-close" id="afop-close-courier-modal">&times;</button>
                 </div>
 
-                <!-- 3 Provider Tabs -->
+                <!-- Provider Tabs -->
                 <div class="afop-courier-provider-tabs">
                     <button type="button" class="afop-courier-tab-btn active" data-provider="bdcourier">
                         <i class="fa-solid fa-truck-fast"></i> BD Courier
@@ -567,6 +583,9 @@ class AFOP_Admin {
                     </button>
                     <button type="button" class="afop-courier-tab-btn" data-provider="fraudbd">
                         <i class="fa-solid fa-shield-halved"></i> FraudBD
+                    </button>
+                    <button type="button" class="afop-courier-tab-btn" data-provider="pathao">
+                        <i class="fa-solid fa-motorcycle"></i> Pathao
                     </button>
                 </div>
 
@@ -653,6 +672,64 @@ class AFOP_Admin {
             </div>
         </div>
 
+        <!-- Customer Store Orders List Modal -->
+        <div id="afop-admin-customer-orders-modal" class="afop-admin-modal-overlay" style="display:none;">
+            <div class="afop-admin-modal-box" style="max-width: 720px;">
+                <div class="afop-admin-modal-header">
+                    <div class="afop-modal-header-left">
+                        <span class="afop-modal-badge" style="background: #e0e7ff; color: #3730a3;"><i class="fa-solid fa-store"></i> Store Order History</span>
+                        <h2 id="afop-cust-orders-title"><?php esc_html_e('Customer Store Orders', 'advance-fake-order-protector'); ?></h2>
+                        <span id="afop-cust-orders-phone-badge" class="afop-phone-pill"></span>
+                    </div>
+                    <button type="button" class="afop-admin-modal-close" id="afop-close-cust-orders-modal">&times;</button>
+                </div>
+
+                <div class="afop-admin-modal-body">
+                    <!-- Loader -->
+                    <div id="afop-cust-orders-loading" class="afop-loader-wrap" style="display:none;">
+                        <div class="afop-spinner"></div>
+                        <p><?php esc_html_e('অর্ডার হিস্ট্রি লোড হচ্ছে...', 'advance-fake-order-protector'); ?></p>
+                    </div>
+
+                    <!-- Content Container -->
+                    <div id="afop-cust-orders-content" style="display:none;">
+                        <div class="afop-ratio-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 15px;">
+                            <div class="afop-card afop-metric-item total" style="padding: 12px 16px;">
+                                <span class="afop-metric-val" id="afop-cust-orders-count-val">0</span>
+                                <span class="afop-metric-lbl"><i class="fa-solid fa-boxes-packing"></i> Total Orders Placed</span>
+                            </div>
+                            <div class="afop-card afop-metric-item success" style="padding: 12px 16px;">
+                                <span class="afop-metric-val" id="afop-cust-orders-spent-val">৳ 0</span>
+                                <span class="afop-metric-lbl"><i class="fa-solid fa-sack-dollar"></i> Total Spent Amount</span>
+                            </div>
+                        </div>
+
+                        <div class="afop-breakdown-section">
+                            <table class="afop-courier-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order #</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Products Purchased</th>
+                                        <th>Total</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="afop-cust-orders-tbody">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="afop-admin-modal-footer">
+                    <button type="button" class="button" id="afop-modal-close-cust-orders-btn"><?php esc_html_e('Close', 'advance-fake-order-protector'); ?></button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast Notification Container -->
         <div id="afop-toast-container" class="afop-toast-container"></div>
         <?php
@@ -693,6 +770,11 @@ class AFOP_Admin {
             'afop_steadfast_api_key'        => 'text',
             'afop_steadfast_secret_key'     => 'text',
             'afop_fraudbd_api_key'          => 'text',
+            'afop_pathao_base_url'          => 'text',
+            'afop_pathao_client_id'         => 'text',
+            'afop_pathao_client_secret'     => 'text',
+            'afop_pathao_username'          => 'text',
+            'afop_pathao_password'          => 'text',
             'afop_courier_cache_hours'      => 'int'
         );
 
@@ -713,6 +795,35 @@ class AFOP_Admin {
         }
 
         add_settings_error('afop_messages', 'afop_message', __('Settings saved successfully!', 'advance-fake-order-protector'), 'updated');
+    }
+
+    /**
+     * Admin AJAX to fetch customer store orders history by phone
+     */
+    public function ajax_get_customer_orders() {
+        check_ajax_referer('afop_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(array('message' => 'Unauthorized.'));
+        }
+
+        $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+        if (empty($phone)) {
+            wp_send_json_error(array('message' => 'Phone number is required.'));
+        }
+
+        $orders = AFOP_Repeat_Order::get_orders_by_phone($phone);
+        $total_spent = 0;
+        foreach ($orders as $o) {
+            $total_spent += floatval($o['raw_total']);
+        }
+
+        wp_send_json_success(array(
+            'phone'            => AFOP_Validator::normalize_phone($phone),
+            'order_count'      => count($orders),
+            'formatted_spent'  => wc_price($total_spent),
+            'orders'           => $orders
+        ));
     }
 
     /**
@@ -885,58 +996,138 @@ class AFOP_Admin {
                 <?php elseif ($active_tab === 'courier'): ?>
                     <div class="afop-settings-section">
                         <h3><i class="fa-solid fa-truck-fast"></i> Courier API & Fraud Ratio Configuration</h3>
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row">Primary Default Provider</th>
-                                <td>
-                                    <select name="afop_courier_provider" id="afop_courier_provider">
-                                        <option value="bdcourier" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'bdcourier'); ?>>BD Courier API (api.bdcourier.com)</option>
-                                        <option value="steadfast" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'steadfast'); ?>>Steadfast Courier API</option>
-                                        <option value="fraudbd" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'fraudbd'); ?>>FraudBD API (fraudbd.com)</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">BD Courier API Key (Bearer Token)</th>
-                                <td>
-                                    <input type="password" name="afop_bdcourier_api_key" value="<?php echo esc_attr(get_option('afop_bdcourier_api_key', '')); ?>" class="large-text" placeholder="BD Courier থেকে প্রাপ্ত API Key দিন">
-                                    <p class="description">bdcourier.com থেকে আপনার API Key সংগ্রহ করুন।</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Steadfast API Key</th>
-                                <td>
-                                    <input type="password" name="afop_steadfast_api_key" value="<?php echo esc_attr(get_option('afop_steadfast_api_key', '')); ?>" class="large-text" placeholder="Steadfast API Key">
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Steadfast Secret Key</th>
-                                <td>
-                                    <input type="password" name="afop_steadfast_secret_key" value="<?php echo esc_attr(get_option('afop_steadfast_secret_key', '')); ?>" class="large-text" placeholder="Steadfast Secret Key">
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">FraudBD API Key</th>
-                                <td>
-                                    <input type="password" name="afop_fraudbd_api_key" value="<?php echo esc_attr(get_option('afop_fraudbd_api_key', '')); ?>" class="large-text" placeholder="FraudBD Account থেকে প্রাপ্ত API Key">
-                                    <p class="description"><a href="https://fraudbd.com" target="_blank">fraudbd.com</a> থেকে আপনার API Key সংগ্রহ করুন (অথবা টেস্ট করার জন্য Sandbox Key ব্যবহার করতে পারেন)।</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Cache Duration (Hours)</th>
-                                <td>
-                                    <input type="number" name="afop_courier_cache_hours" value="<?php echo esc_attr(get_option('afop_courier_cache_hours', 24)); ?>" class="small-text" min="1" max="168"> ঘণ্টা
-                                    <p class="description">কুরিয়ার হিস্ট্রি ক্যাশে থাকবে যেন প্রতিবার নতুন API কল করতে না হয়।</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Test Connection</th>
-                                <td>
-                                    <button type="button" class="button" id="afop-test-api-btn"><i class="fa-solid fa-plug"></i> Test Courier API Connection</button>
-                                    <span id="afop-test-api-result" style="margin-left: 10px;"></span>
-                                </td>
-                            </tr>
-                        </table>
+                        <p class="description" style="margin-bottom: 20px;">এখানে প্রতিটি কুরিয়ার সার্ভিসের API সেটিংস আলাদা আলাদা সেকশনে সুন্দরভাবে সাজানো হয়েছে। আপনার ব্যবহৃত কুরিয়ারের ক্রেডেনশিয়াল টাইপ করে সেভ করুন।</p>
+
+                        <!-- 1. General & Default Provider -->
+                        <div class="afop-courier-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-sliders" style="color: #6366f1;"></i> Primary Default Courier Provider
+                            </h4>
+                            <table class="form-table" style="margin: 0;">
+                                <tr>
+                                    <th scope="row">Default Provider</th>
+                                    <td>
+                                        <select name="afop_courier_provider" id="afop_courier_provider" class="regular-text">
+                                            <option value="bdcourier" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'bdcourier'); ?>>BD Courier API (api.bdcourier.com)</option>
+                                            <option value="steadfast" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'steadfast'); ?>>Steadfast Courier API</option>
+                                            <option value="fraudbd" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'fraudbd'); ?>>FraudBD API (fraudbd.com)</option>
+                                            <option value="pathao" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'pathao'); ?>>Pathao Courier API (pathao.com)</option>
+                                        </select>
+                                        <p class="description">অর্ডার টেবিল ও মোডালে ডিফল্টভাবে যে কুরিয়ারের ডাটা দেখাবে।</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Cache Duration (Hours)</th>
+                                    <td>
+                                        <input type="number" name="afop_courier_cache_hours" value="<?php echo esc_attr(get_option('afop_courier_cache_hours', 24)); ?>" class="small-text" min="1" max="168"> ঘণ্টা
+                                        <p class="description">কুরিয়ার হিস্ট্রি ক্যাশে থাকবে যেন প্রতিবার নতুন API কল করতে না হয় (ডিফল্ট: ২৪ ঘণ্টা)।</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Test Connection</th>
+                                    <td>
+                                        <button type="button" class="button" id="afop-test-api-btn"><i class="fa-solid fa-plug"></i> Test Courier API Connection</button>
+                                        <span id="afop-test-api-result" style="margin-left: 10px;"></span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 2. Pathao Courier API -->
+                        <div class="afop-courier-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #ef4444; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h4 style="margin: 0 0 15px; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-motorcycle" style="color: #ef4444;"></i> Pathao Courier Merchant API Settings
+                            </h4>
+                            <table class="form-table" style="margin: 0;">
+                                <tr>
+                                    <th scope="row">Pathao Environment</th>
+                                    <td>
+                                        <select name="afop_pathao_base_url" id="afop_pathao_base_url" class="regular-text">
+                                            <option value="https://courier-api-sandbox.pathao.com" <?php selected(get_option('afop_pathao_base_url', 'https://courier-api-sandbox.pathao.com'), 'https://courier-api-sandbox.pathao.com'); ?>>Sandbox / Test Environment (https://courier-api-sandbox.pathao.com)</option>
+                                            <option value="https://api-hermes.pathao.com" <?php selected(get_option('afop_pathao_base_url', 'https://courier-api-sandbox.pathao.com'), 'https://api-hermes.pathao.com'); ?>>Production / Live Environment (https://api-hermes.pathao.com)</option>
+                                        </select>
+                                        <p class="description">টেস্টিং এর সময় Sandbox এবং লাইভ ব্যবহারের সময় Production সিলেক্ট করুন।</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Pathao Client ID</th>
+                                    <td>
+                                        <input type="text" name="afop_pathao_client_id" value="<?php echo esc_attr(get_option('afop_pathao_client_id', '')); ?>" class="large-text" placeholder="Pathao Merchant API Client ID">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Pathao Client Secret</th>
+                                    <td>
+                                        <input type="password" name="afop_pathao_client_secret" value="<?php echo esc_attr(get_option('afop_pathao_client_secret', '')); ?>" class="large-text" placeholder="Pathao Merchant API Client Secret">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Pathao Login Email (Username)</th>
+                                    <td>
+                                        <input type="email" name="afop_pathao_username" value="<?php echo esc_attr(get_option('afop_pathao_username', '')); ?>" class="large-text" placeholder="Pathao Merchant Email">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Pathao Login Password</th>
+                                    <td>
+                                        <input type="password" name="afop_pathao_password" value="<?php echo esc_attr(get_option('afop_pathao_password', '')); ?>" class="large-text" placeholder="Pathao Merchant Password">
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 3. Steadfast Courier API -->
+                        <div class="afop-courier-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #f59e0b; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h4 style="margin: 0 0 15px; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-bolt" style="color: #f59e0b;"></i> Steadfast Courier API Settings
+                            </h4>
+                            <table class="form-table" style="margin: 0;">
+                                <tr>
+                                    <th scope="row">Steadfast API Key</th>
+                                    <td>
+                                        <input type="password" name="afop_steadfast_api_key" value="<?php echo esc_attr(get_option('afop_steadfast_api_key', '')); ?>" class="large-text" placeholder="Steadfast API Key">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Steadfast Secret Key</th>
+                                    <td>
+                                        <input type="password" name="afop_steadfast_secret_key" value="<?php echo esc_attr(get_option('afop_steadfast_secret_key', '')); ?>" class="large-text" placeholder="Steadfast Secret Key">
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 4. FraudBD API -->
+                        <div class="afop-courier-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h4 style="margin: 0 0 15px; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-shield-halved" style="color: #3b82f6;"></i> FraudBD API Settings (fraudbd.com)
+                            </h4>
+                            <table class="form-table" style="margin: 0;">
+                                <tr>
+                                    <th scope="row">FraudBD API Key</th>
+                                    <td>
+                                        <input type="password" name="afop_fraudbd_api_key" value="<?php echo esc_attr(get_option('afop_fraudbd_api_key', '')); ?>" class="large-text" placeholder="FraudBD Account থেকে প্রাপ্ত API Key">
+                                        <p class="description"><a href="https://fraudbd.com" target="_blank">fraudbd.com</a> থেকে আপনার API Key সংগ্রহ করুন (অথবা টেস্ট করার জন্য Sandbox Key ব্যবহার করতে পারেন)।</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- 5. BD Courier API -->
+                        <div class="afop-courier-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #10b981; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <h4 style="margin: 0 0 15px; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-truck-fast" style="color: #10b981;"></i> BD Courier API Settings (api.bdcourier.com)
+                            </h4>
+                            <table class="form-table" style="margin: 0;">
+                                <tr>
+                                    <th scope="row">BD Courier API Key</th>
+                                    <td>
+                                        <input type="password" name="afop_bdcourier_api_key" value="<?php echo esc_attr(get_option('afop_bdcourier_api_key', '')); ?>" class="large-text" placeholder="BD Courier থেকে প্রাপ্ত API Key দিন">
+                                        <p class="description">bdcourier.com থেকে আপনার API Key সংগ্রহ করুন।</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
                 <?php endif; ?>
 
