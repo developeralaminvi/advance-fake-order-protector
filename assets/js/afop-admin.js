@@ -86,7 +86,84 @@
                 return false;
             });
 
-            // 2. Open Courier Ratio Modal
+            // 2. Open Security Actions Popup Modal
+            $(document).on('click', '.afop-security-popup-btn', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                var $btn = $(this);
+                var phone = $btn.data('phone') || '';
+                var ip = $btn.data('ip') || '';
+                var name = $btn.data('name') || 'Customer';
+                var phoneBlocked = $btn.data('phone-blocked') === true || $btn.data('phone-blocked') === 'true';
+                var ipBlocked = $btn.data('ip-blocked') === true || $btn.data('ip-blocked') === 'true';
+                var orderCount = parseInt($btn.data('order-count') || 0);
+
+                $('#afop-sec-modal-customer-name').text(name);
+                $('#afop-sec-modal-phone-val').text(phone || 'N/A');
+                $('#afop-sec-modal-phone-link').attr('href', phone ? 'tel:' + phone : '#');
+                $('#afop-sec-modal-ip-val').text(ip || 'N/A');
+                $('#afop-sec-modal-orders-count').text(orderCount + (orderCount === 1 ? ' Order' : ' Orders'));
+
+                // Pass data to orders button inside modal
+                $('#afop-sec-modal-orders-btn').data('phone', phone).data('name', name);
+                if (orderCount > 1) {
+                    $('#afop-sec-modal-orders-btn').addClass('has-multiple');
+                } else {
+                    $('#afop-sec-modal-orders-btn').removeClass('has-multiple');
+                }
+
+                // Update Phone Block button in modal
+                var $phoneBtn = $('#afop-sec-modal-toggle-phone-btn');
+                $phoneBtn.data('type', 'phone').data('value', phone);
+                if (phoneBlocked) {
+                    $phoneBtn.removeClass('is-safe').addClass('is-blocked');
+                    $phoneBtn.find('.afop-btn-icon').html('<i class="fa-solid fa-ban"></i>');
+                    $phoneBtn.find('.afop-btn-text').text('Unblock Phone Number');
+                    $('#afop-sec-modal-phone-status').removeClass('status-unblocked').addClass('status-blocked').text('Blocked');
+                } else {
+                    $phoneBtn.removeClass('is-blocked').addClass('is-safe');
+                    $phoneBtn.find('.afop-btn-icon').html('<i class="fa-solid fa-phone-slash"></i>');
+                    $phoneBtn.find('.afop-btn-text').text('Block Phone Number');
+                    $('#afop-sec-modal-phone-status').removeClass('status-blocked').addClass('status-unblocked').text('Safe');
+                }
+
+                // Update IP Block button in modal
+                var $ipBtn = $('#afop-sec-modal-toggle-ip-btn');
+                $ipBtn.data('type', 'ip').data('value', ip);
+                if (ipBlocked) {
+                    $ipBtn.removeClass('is-safe').addClass('is-blocked');
+                    $ipBtn.find('.afop-btn-icon').html('<i class="fa-solid fa-ban"></i>');
+                    $ipBtn.find('.afop-btn-text').text('Unblock IP Address');
+                    $('#afop-sec-modal-ip-status').removeClass('status-unblocked').addClass('status-blocked').text('IP Blocked');
+                } else {
+                    $ipBtn.removeClass('is-blocked').addClass('is-safe');
+                    $ipBtn.find('.afop-btn-icon').html('<i class="fa-solid fa-globe"></i>');
+                    $ipBtn.find('.afop-btn-text').text('Block IP Address');
+                    $('#afop-sec-modal-ip-status').removeClass('status-blocked').addClass('status-unblocked').text('Safe');
+                }
+
+                $('#afop-admin-security-modal').fadeIn(200);
+                return false;
+            });
+
+            // Close Security Actions Modal
+            $(document).on('click', '#afop-close-sec-modal, #afop-close-sec-modal-footer', function () {
+                $('#afop-admin-security-modal').fadeOut(200);
+            });
+
+            // Open Customer Store Orders Modal from Security Actions Modal
+            $(document).on('click', '#afop-sec-modal-orders-btn', function (e) {
+                e.preventDefault();
+                var phone = $(this).data('phone');
+                var name = $(this).data('name');
+                if (phone) {
+                    self.openCustomerOrdersModal(phone, name);
+                }
+            });
+
+            // 3. Open Courier Ratio Modal
             $(document).on('click', '.afop-check-courier-btn', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -105,7 +182,7 @@
             });
 
             // Prevent WooCommerce Orders Table row click redirection when clicking our custom columns/actions
-            $(document).on('click', '.column-afop_courier_ratio, .column-afop_security_actions, .afop-courier-mini-graph, .afop-order-actions-wrap, .afop-toggle-block-btn, .afop-phone-pill-link, .afop-customer-orders-btn', function (e) {
+            $(document).on('click', '.column-afop_courier_ratio, .column-afop_security_actions, .afop-courier-mini-graph, .afop-security-actions-cell, .afop-security-popup-btn, .afop-order-actions-wrap, .afop-toggle-block-btn, .afop-phone-pill-link, .afop-customer-orders-btn', function (e) {
                 e.stopPropagation();
             });
 
