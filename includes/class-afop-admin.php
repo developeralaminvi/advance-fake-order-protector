@@ -281,6 +281,9 @@ class AFOP_Admin {
     /**
      * Render Dedicated Courier Ratio Mini Graph Column in Orders List
      */
+    /**
+     * Render Dedicated Courier Ratio Mini Graph Column in Orders List
+     */
     public function render_courier_ratio_column($order) {
         $phone = $order->get_billing_phone();
         $normalized_phone = AFOP_Validator::normalize_phone($phone);
@@ -291,9 +294,33 @@ class AFOP_Admin {
             return;
         }
 
-        // Fetch quick cached or simulated courier delivery stats
+        $active_provider = get_option('afop_courier_provider', 'bdcourier');
+        $has_api_configured = AFOP_Courier_Checker::is_provider_configured($active_provider) || AFOP_Courier_Checker::has_any_api_configured();
+
+        if (!$has_api_configured) {
+            ?>
+            <div class="afop-courier-mini-graph afop-no-api-box" title="<?php esc_attr_e('আপনি কোনো কুরিয়ার API অ্যাড করেন নাই। সেটিংস থেকে API Key যুক্ত করুন।', 'advance-fake-order-protector'); ?>">
+                <div class="afop-mini-chart-ring" style="border-color: #f59e0b; background: #fffbebfb;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #d97706; font-size: 15px;"></i>
+                </div>
+                <div class="afop-mini-graph-info">
+                    <div class="afop-mini-graph-header">
+                        <span class="afop-mini-rate-text" style="color: #d97706; font-size: 11.5px; font-weight: 700;"><?php esc_html_e('API Key নেই', 'advance-fake-order-protector'); ?></span>
+                    </div>
+                    <div class="afop-mini-graph-sub" style="margin-top: 2px;">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=afop-settings')); ?>" style="color: #2563eb; font-size: 11px; text-decoration: underline;">
+                            <i class="fa-solid fa-gear"></i> <?php esc_html_e('API যুক্ত করুন', 'advance-fake-order-protector'); ?>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php
+            return;
+        }
+
+        // Fetch quick cached courier delivery stats
         $courier_stat = AFOP_Courier_Checker::get_quick_courier_stat($normalized_phone);
-        $has_data = !empty($courier_stat) && isset($courier_stat['delivery_rate']);
+        $has_data = !empty($courier_stat) && !empty($courier_stat['has_api']) && isset($courier_stat['delivery_rate']);
         $rate_num = $has_data ? round(floatval($courier_stat['delivery_rate'])) : 0;
         $total_orders = $has_data && isset($courier_stat['total_orders']) ? intval($courier_stat['total_orders']) : 0;
         $delivered = $has_data && isset($courier_stat['delivered']) ? intval($courier_stat['delivered']) : 0;
@@ -372,21 +399,31 @@ class AFOP_Admin {
         $order_count = count($customer_orders);
         ?>
         <div class="afop-order-actions-wrap" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
-            <?php if (!empty($normalized_phone)): ?>
-                <!-- Phone Display Pill with Store Orders Badge -->
+            <?php if (!empty($normalized_phone) || !empty($client_ip)): ?>
+                <!-- Phone & IP Display Row with Store Orders Badge -->
                 <div class="afop-phone-display-row">
-                    <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
-                        <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
-                    </a>
+                    <?php if (!empty($normalized_phone)): ?>
+                        <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
+                            <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
+                        </a>
+                    <?php endif; ?>
 
-                    <button type="button" 
-                            class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
-                            data-phone="<?php echo esc_attr($normalized_phone); ?>" 
-                            data-name="<?php echo esc_attr($customer_name); ?>"
-                            title="<?php esc_attr_e('Click to view all store orders for this customer', 'advance-fake-order-protector'); ?>">
-                        <i class="fa-solid fa-boxes-packing"></i> 
-                        <span><?php echo intval($order_count); ?> <?php echo $order_count === 1 ? 'Order' : 'Orders'; ?></span>
-                    </button>
+                    <?php if (!empty($client_ip)): ?>
+                        <span class="afop-ip-pill-link" title="<?php esc_attr_e('Order IP Address', 'advance-fake-order-protector'); ?>">
+                            <i class="fa-solid fa-globe"></i> <strong><?php echo esc_html($client_ip); ?></strong>
+                        </span>
+                    <?php endif; ?>
+
+                    <?php if (!empty($normalized_phone)): ?>
+                        <button type="button" 
+                                class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
+                                data-phone="<?php echo esc_attr($normalized_phone); ?>" 
+                                data-name="<?php echo esc_attr($customer_name); ?>"
+                                title="<?php esc_attr_e('Click to view all store orders for this customer', 'advance-fake-order-protector'); ?>">
+                            <i class="fa-solid fa-boxes-packing"></i> 
+                            <span><?php echo intval($order_count); ?> <?php echo $order_count === 1 ? 'Order' : 'Orders'; ?></span>
+                        </button>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -445,7 +482,7 @@ class AFOP_Admin {
     }
 
     /**
-     * Render Single Order Meta Box Content
+     * Render Single Order Meta Box Content (Order Details Page)
      */
     public function render_order_meta_box_content($post_or_order) {
         $order = ($post_or_order instanceof WC_Order) ? $post_or_order : wc_get_order($post_or_order->ID);
@@ -461,8 +498,9 @@ class AFOP_Admin {
         $phone_blocked = !empty($normalized_phone) ? AFOP_Blocklist::is_blocked('phone', $normalized_phone) : false;
         $ip_blocked = !empty($client_ip) ? AFOP_Blocklist::is_blocked('ip', $client_ip) : false;
 
-        $courier_stat = !empty($normalized_phone) ? AFOP_Courier_Checker::get_quick_courier_stat($normalized_phone) : null;
-        $has_data = !empty($courier_stat) && isset($courier_stat['delivery_rate']);
+        $has_any_api = AFOP_Courier_Checker::has_any_api_configured();
+        $courier_stat = ($has_any_api && !empty($normalized_phone)) ? AFOP_Courier_Checker::get_quick_courier_stat($normalized_phone) : null;
+        $has_data = !empty($courier_stat) && !empty($courier_stat['has_api']) && isset($courier_stat['delivery_rate']);
         $rate_num = $has_data ? round(floatval($courier_stat['delivery_rate'])) : 0;
         $total_orders = $has_data && isset($courier_stat['total_orders']) ? intval($courier_stat['total_orders']) : 0;
         $delivered = $has_data && isset($courier_stat['delivered']) ? intval($courier_stat['delivered']) : 0;
@@ -518,8 +556,21 @@ class AFOP_Admin {
                 <?php endif; ?>
             </div>
 
-            <?php if (!empty($normalized_phone)): ?>
-                <!-- Courier Ratio Mini Card in Meta Box -->
+            <?php if (!$has_any_api): ?>
+                <!-- No API Configured Warning Banner in Order Details -->
+                <div class="afop-no-api-details-notice" style="margin-top: 12px; padding: 12px; background: #fffbebfb; border: 1px solid #fcd34d; border-radius: 8px; font-size: 12px; color: #92400e; line-height: 1.5;">
+                    <div style="font-weight: 700; font-size: 12.5px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; color: #b45309;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> <?php esc_html_e('কুরিয়ার API কনফিগার করা নেই', 'advance-fake-order-protector'); ?>
+                    </div>
+                    <?php esc_html_e('আপনি কোনো API অ্যাড করেন নাই। কুরিয়ার ডেলিভারি রেশিও দেখতে সেটিংস থেকে কুরিয়ার API Key যুক্ত করুন।', 'advance-fake-order-protector'); ?>
+                    <div style="margin-top: 8px;">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=afop-settings')); ?>" class="button button-secondary button-small" style="color: #2563eb; font-weight: 600;">
+                            <i class="fa-solid fa-gear"></i> <?php esc_html_e('সেটিংস থেকে API অ্যাড করুন', 'advance-fake-order-protector'); ?>
+                        </a>
+                    </div>
+                </div>
+            <?php elseif (!empty($normalized_phone)): ?>
+                <!-- Courier Ratio Card in Meta Box -->
                 <button type="button" 
                         class="afop-courier-mini-graph afop-check-courier-btn risk-<?php echo esc_attr($risk_level); ?>" 
                         style="margin-top: 12px; width: 100%;"

@@ -496,6 +496,22 @@
                             var defaultProv = res.data.active_provider || 'bdcourier';
                             self.currentProvider = defaultProv;
 
+                            // Update Provider Tabs Configuration Badges
+                            if (res.data.configured_status) {
+                                $.each(res.data.configured_status, function (pKey, isConfigured) {
+                                    var $tabBtn = $('.afop-courier-tab-btn[data-provider="' + pKey + '"]');
+                                    if (!isConfigured) {
+                                        $tabBtn.addClass('no-api-tab');
+                                        if ($tabBtn.find('.no-api-tag').length === 0) {
+                                            $tabBtn.append(' <small class="no-api-tag" style="font-size:10px; color:#d97706; opacity:0.85; font-weight:600;">(No API)</small>');
+                                        }
+                                    } else {
+                                        $tabBtn.removeClass('no-api-tab');
+                                        $tabBtn.find('.no-api-tag').remove();
+                                    }
+                                });
+                            }
+
                             $('.afop-courier-tab-btn').removeClass('active');
                             $('.afop-courier-tab-btn[data-provider="' + defaultProv + '"]').addClass('active');
 
@@ -524,6 +540,30 @@
         },
 
         renderCourierModalData: function (data) {
+            var self = this;
+            var isNoApi = data.no_api || data.has_api === false;
+
+            if (isNoApi) {
+                $('#afop-delivery-rate-text').text('0%');
+                $('#afop-return-rate-text').text('0%');
+                $('#afop-delivered-count').text('0');
+                $('#afop-returned-count').text('0');
+                $('#afop-total-count').text('0');
+
+                var $circle = $('#afop-gauge-circle');
+                $circle.removeClass('risk-medium risk-high');
+
+                var $badge = $('#afop-risk-badge');
+                $badge.removeClass('safe medium high').addClass('medium').html('<i class="fa-solid fa-triangle-exclamation"></i> API Key Missing');
+
+                var msg = data.message || 'আপনি এই কুরিয়ারের API অ্যাড করেন নাই। সেটিংস থেকে API Key যুক্ত করুন।';
+                $('#afop-demo-notice-banner').html('<i class="fa-solid fa-triangle-exclamation" style="color: #d97706;"></i> <strong>API Key কনফিগার করা নাই:</strong> ' + msg).css({'background': '#fffbebfb', 'border': '1px solid #fcd34d', 'color': '#92400e'}).show();
+
+                var $tbody = $('#afop-courier-breakdown-tbody');
+                $tbody.empty().append('<tr><td colspan="5" style="text-align: center; padding: 20px; color: #b45309;"><i class="fa-solid fa-triangle-exclamation"></i> <strong>আপনি কোনো API অ্যাড করেন নাই।</strong> Courier Ratio দেখতে সেটিংস থেকে API Key যুক্ত করুন।</td></tr>');
+                return;
+            }
+
             var rate = parseFloat(data.delivery_rate || 0);
             var returnRate = parseFloat(data.return_rate || 0);
 

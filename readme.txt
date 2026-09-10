@@ -4,7 +4,7 @@ Tags: woocommerce, fake order, bangladesh phone validation, courier checker, pat
 Requires at least: 5.8
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 
 SARKAR IT Fake protection for Bangladeshi WooCommerce stores with phone number validation, 1-click IP/phone blocklist, repeat order WhatsApp protection, real-time incomplete orders tracker, and Pathao, Steadfast, BDCourier & FraudBD delivery ratio analytics.

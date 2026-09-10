@@ -221,7 +221,11 @@
 }
 
 .afop-phone-display-row {
-    margin-bottom: 1px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 3px;
 }
 
 .afop-phone-pill-link {
@@ -248,6 +252,24 @@
     background: #e2e8f0;
     color: #1d4ed8;
     border-color: #cbd5e1;
+}
+
+.afop-ip-pill-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #475569;
+    background: #f8fafc;
+    padding: 3px 7px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    font-weight: 600;
+}
+
+.afop-ip-pill-link i {
+    color: #0284c7;
+    font-size: 10.5px;
 }
 
 /* Mini Courier Ratio Graph Card (Table Column) */

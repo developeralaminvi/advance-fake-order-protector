@@ -18,6 +18,37 @@ class AFOP_Courier_Checker {
     }
 
     /**
+     * Check if a specific courier API provider is configured with valid credentials
+     *
+     * @param string $provider
+     * @return bool
+     */
+    public static function is_provider_configured($provider) {
+        if ($provider === 'steadfast') {
+            return !empty(trim(get_option('afop_steadfast_api_key', '')));
+        } elseif ($provider === 'fraudbd') {
+            return !empty(trim(get_option('afop_fraudbd_api_key', '')));
+        } elseif ($provider === 'pathao') {
+            return !empty(trim(get_option('afop_pathao_client_id', ''))) && !empty(trim(get_option('afop_pathao_client_secret', '')));
+        } elseif ($provider === 'bdcourier') {
+            return !empty(trim(get_option('afop_bdcourier_api_key', '')));
+        }
+        return false;
+    }
+
+    /**
+     * Check if any courier API provider is configured
+     *
+     * @return bool
+     */
+    public static function has_any_api_configured() {
+        return self::is_provider_configured('bdcourier') ||
+               self::is_provider_configured('steadfast') ||
+               self::is_provider_configured('fraudbd') ||
+               self::is_provider_configured('pathao');
+    }
+
+    /**
      * Get quick/cached courier stats for WooCommerce orders table column rendering (non-blocking)
      *
      * @param string $phone
@@ -36,24 +67,23 @@ class AFOP_Courier_Checker {
         $cached = self::get_cached_stats($normalized_phone, $provider);
         if ($cached) {
             $cached['is_blocked'] = AFOP_Blocklist::is_blocked('phone', $normalized_phone);
+            $cached['has_api'] = true;
             return $cached;
         }
 
         // Check if API key is configured for the active provider
-        $has_key = false;
-        if ($provider === 'steadfast') {
-            $has_key = !empty(trim(get_option('afop_steadfast_api_key', '')));
-        } elseif ($provider === 'fraudbd') {
-            $has_key = !empty(trim(get_option('afop_fraudbd_api_key', '')));
-        } elseif ($provider === 'pathao') {
-            $has_key = !empty(trim(get_option('afop_pathao_client_id', ''))) && !empty(trim(get_option('afop_pathao_client_secret', '')));
-        } else {
-            $has_key = !empty(trim(get_option('afop_bdcourier_api_key', '')));
-        }
+        $has_key = self::is_provider_configured($provider);
 
-        // If no API key configured, use simulated demo stats so preview graph renders instantly
+        // If no API key configured, return no_api notice response instead of fake demo stats
         if (!$has_key) {
-            return self::get_demo_stats($normalized_phone, $provider);
+            return array(
+                'success'    => false,
+                'no_api'     => true,
+                'has_api'    => false,
+                'provider'   => $provider,
+                'message'    => __('আপনি কোনো API অ্যাড করেন নাই। Courier Ratio দেখতে সেটিংস থেকে API Key যুক্ত করুন।', 'advance-fake-order-protector'),
+                'is_blocked' => AFOP_Blocklist::is_blocked('phone', $normalized_phone)
+            );
         }
 
         return null;
@@ -81,12 +111,28 @@ class AFOP_Courier_Checker {
             $provider = get_option('afop_courier_provider', 'bdcourier');
         }
 
+        // Check if API key is configured for this provider
+        if (!self::is_provider_configured($provider)) {
+            return array(
+                'success'    => false,
+                'no_api'     => true,
+                'has_api'    => false,
+                'phone'      => $normalized_phone,
+                'provider'   => $provider,
+                'message'    => sprintf(__('আপনি %s API অ্যাড করেন নাই। Courier Ratio দেখতে সেটিংস থেকে API Key যুক্ত করুন।', 'advance-fake-order-protector'), ucfirst($provider)),
+                'is_blocked' => AFOP_Blocklist::is_blocked('phone', $normalized_phone),
+                'from_cache' => false
+            );
+        }
+
         // Check local cache if not force refresh
         if (!$force_refresh) {
             $cached = self::get_cached_stats($normalized_phone, $provider);
             if ($cached) {
                 $cached['is_blocked'] = AFOP_Blocklist::is_blocked('phone', $normalized_phone);
                 $cached['from_cache'] = true;
+                $cached['has_api']    = true;
+                $cached['no_api']     = false;
                 return $cached;
             }
         }
@@ -103,13 +149,16 @@ class AFOP_Courier_Checker {
             $stats = self::fetch_bdcourier_stats($normalized_phone);
         }
 
-        // If API key is missing or failed, fallback to simulated preview
         if (!$stats || empty($stats['success'])) {
-            $stats = self::get_demo_stats($normalized_phone, $provider);
-        }
-
-        // Cache the live successful response
-        if (!empty($stats['success']) && empty($stats['is_demo'])) {
+            if (!isset($stats['message'])) {
+                $stats = array('success' => false, 'message' => __('API Data Unavailable', 'advance-fake-order-protector'));
+            }
+            $stats['has_api'] = true;
+            $stats['no_api']  = false;
+        } else {
+            $stats['has_api'] = true;
+            $stats['no_api']  = false;
+            // Cache the live successful response
             self::save_to_cache($normalized_phone, $provider, $stats);
         }
 
@@ -781,16 +830,23 @@ class AFOP_Courier_Checker {
             );
 
             wp_send_json_success(array(
-                'multi_provider' => true,
-                'phone'          => AFOP_Validator::normalize_phone($phone),
-                'is_blocked'     => AFOP_Blocklist::is_blocked('phone', $phone),
-                'providers'      => $providers_data,
-                'active_provider'=> get_option('afop_courier_provider', 'bdcourier')
+                'multi_provider'    => true,
+                'phone'             => AFOP_Validator::normalize_phone($phone),
+                'is_blocked'        => AFOP_Blocklist::is_blocked('phone', $phone),
+                'providers'         => $providers_data,
+                'active_provider'   => get_option('afop_courier_provider', 'bdcourier'),
+                'has_any_api'       => self::has_any_api_configured(),
+                'configured_status' => array(
+                    'bdcourier' => self::is_provider_configured('bdcourier'),
+                    'steadfast' => self::is_provider_configured('steadfast'),
+                    'fraudbd'   => self::is_provider_configured('fraudbd'),
+                    'pathao'    => self::is_provider_configured('pathao')
+                )
             ));
         } else {
             $stats = self::get_delivery_stats($phone, $force, $provider);
-            if (!$stats || empty($stats['success'])) {
-                wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : 'Failed to fetch stats.'));
+            if (!$stats) {
+                wp_send_json_error(array('message' => 'Failed to fetch stats.'));
             }
             wp_send_json_success($stats);
         }
