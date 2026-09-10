@@ -208,14 +208,16 @@
 
 .wp-list-table th.column-afop_courier_ratio,
 .wp-list-table td.column-afop_courier_ratio {
-    width: 170px;
-    vertical-align: middle;
+    width: 165px !important;
+    min-width: 150px !important;
+    vertical-align: middle !important;
 }
 
 .wp-list-table th.column-afop_security_actions,
 .wp-list-table td.column-afop_security_actions {
-    width: 175px;
-    vertical-align: middle;
+    width: 165px !important;
+    min-width: 150px !important;
+    vertical-align: middle !important;
 }
 
 /* Security Popup Trigger Button in Table */
@@ -225,11 +227,10 @@
 
 .afop-security-popup-btn {
     display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    font-size: 11.5px;
-    font-weight: 600;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4px 8px;
     border-radius: 6px;
     border: 1px solid #cbd5e1;
     background: #ffffff;
@@ -239,6 +240,7 @@
     white-space: nowrap;
     outline: none;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
 }
 
 .afop-security-popup-btn:hover {
@@ -260,22 +262,44 @@
     border-color: #f87171;
 }
 
-.afop-security-popup-btn .afop-sec-btn-icon {
-    color: #2563eb;
-    font-size: 12px;
+.afop-sec-btn-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
 }
 
-.afop-security-popup-btn.is-blocked .afop-sec-btn-icon {
+.afop-sec-btn-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.afop-sec-btn-main i {
+    color: #2563eb;
+    font-size: 11px;
+}
+
+.afop-security-popup-btn.is-blocked .afop-sec-btn-main i {
     color: #dc2626;
 }
 
-.afop-security-popup-btn .afop-sec-btn-phone {
-    font-size: 10.5px;
-    color: #475569;
-    background: #f1f5f9;
-    padding: 1px 6px;
-    border-radius: 4px;
-    margin-left: 2px;
+.afop-sec-btn-sub {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+    line-height: 1.1;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.afop-sec-btn-sub i {
+    font-size: 9px;
+    opacity: 0.8;
 }
 
 /* Orders Table Action Buttons */

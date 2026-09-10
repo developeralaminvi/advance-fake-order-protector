@@ -409,17 +409,17 @@ class AFOP_Admin {
                     data-ip-blocked="<?php echo $ip_blocked ? 'true' : 'false'; ?>"
                     data-order-count="<?php echo intval($order_count); ?>"
                     title="<?php esc_attr_e('Click to open Security & Blocklist Actions', 'advance-fake-order-protector'); ?>">
-                <span class="afop-sec-btn-icon"><i class="fa-solid <?php echo $is_any_blocked ? 'fa-shield-cat' : 'fa-shield-halved'; ?>"></i></span>
-                <span class="afop-sec-btn-text">
-                    <?php if ($is_any_blocked): ?>
-                        <strong><?php echo esc_html__('Blocked', 'advance-fake-order-protector'); ?></strong>
-                    <?php else: ?>
-                        <strong><?php echo esc_html__('Security Actions', 'advance-fake-order-protector'); ?></strong>
+                <div class="afop-sec-btn-inner">
+                    <div class="afop-sec-btn-main">
+                        <i class="fa-solid <?php echo $is_any_blocked ? 'fa-ban' : 'fa-shield-halved'; ?>"></i>
+                        <span><?php echo $is_any_blocked ? esc_html__('Blocked', 'advance-fake-order-protector') : esc_html__('Security Actions', 'advance-fake-order-protector'); ?></span>
+                    </div>
+                    <?php if (!empty($normalized_phone)): ?>
+                        <div class="afop-sec-btn-sub">
+                            <i class="fa-solid fa-phone"></i> <?php echo esc_html($normalized_phone); ?>
+                        </div>
                     <?php endif; ?>
-                </span>
-                <?php if (!empty($normalized_phone)): ?>
-                    <span class="afop-sec-btn-phone"><i class="fa-solid fa-phone" style="font-size: 9.5px; opacity: 0.8;"></i> <?php echo esc_html($normalized_phone); ?></span>
-                <?php endif; ?>
+                </div>
             </button>
         </div>
         <?php
