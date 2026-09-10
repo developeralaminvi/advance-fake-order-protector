@@ -399,36 +399,32 @@ class AFOP_Admin {
         $order_count = count($customer_orders);
         ?>
         <div class="afop-order-actions-wrap" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
-            <?php if (!empty($normalized_phone) || !empty($client_ip)): ?>
-                <!-- Phone & IP Display Row with Store Orders Badge -->
+            <?php if (!empty($normalized_phone)): ?>
+                <!-- Line 1: Phone Display Pill & Store Orders Badge -->
                 <div class="afop-phone-display-row">
-                    <?php if (!empty($normalized_phone)): ?>
-                        <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
-                            <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
-                        </a>
-                    <?php endif; ?>
+                    <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-phone"></i> <strong><?php echo esc_html($normalized_phone); ?></strong>
+                    </a>
 
-                    <?php if (!empty($client_ip)): ?>
-                        <span class="afop-ip-pill-link" title="<?php esc_attr_e('Order IP Address', 'advance-fake-order-protector'); ?>">
-                            <i class="fa-solid fa-globe"></i> <strong><?php echo esc_html($client_ip); ?></strong>
-                        </span>
-                    <?php endif; ?>
-
-                    <?php if (!empty($normalized_phone)): ?>
-                        <button type="button" 
-                                class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
-                                data-phone="<?php echo esc_attr($normalized_phone); ?>" 
-                                data-name="<?php echo esc_attr($customer_name); ?>"
-                                title="<?php esc_attr_e('Click to view all store orders for this customer', 'advance-fake-order-protector'); ?>">
-                            <i class="fa-solid fa-boxes-packing"></i> 
-                            <span><?php echo intval($order_count); ?> <?php echo $order_count === 1 ? 'Order' : 'Orders'; ?></span>
-                        </button>
-                    <?php endif; ?>
+                    <button type="button" 
+                            class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
+                            data-phone="<?php echo esc_attr($normalized_phone); ?>" 
+                            data-name="<?php echo esc_attr($customer_name); ?>"
+                            title="<?php esc_attr_e('Click to view all store orders for this customer', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-boxes-packing"></i> 
+                        <span><?php echo intval($order_count); ?> <?php echo $order_count === 1 ? 'Order' : 'Orders'; ?></span>
+                    </button>
                 </div>
             <?php endif; ?>
 
-            <!-- Compact Action Boxes Row (Side-by-Side in 1 Line) -->
+            <!-- Line 2: IP Pill & Compact Action Boxes -->
             <div class="afop-action-boxes-row">
+                <?php if (!empty($client_ip)): ?>
+                    <span class="afop-ip-pill-link" title="<?php esc_attr_e('Order IP Address', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-globe"></i> <span><?php echo esc_html($client_ip); ?></span>
+                    </span>
+                <?php endif; ?>
+
                 <?php if (!empty($normalized_phone)): ?>
                     <!-- Phone Block Box -->
                     <button type="button" 

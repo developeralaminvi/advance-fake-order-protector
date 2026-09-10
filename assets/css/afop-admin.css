@@ -206,7 +206,7 @@
 
 .wp-list-table th.column-afop_security_actions,
 .wp-list-table td.column-afop_security_actions {
-    width: 160px;
+    width: 230px;
     vertical-align: middle;
 }
 
@@ -214,38 +214,39 @@
 .afop-order-actions-wrap {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    min-width: 140px;
-    max-width: 180px;
+    gap: 3px;
+    min-width: 190px;
+    max-width: 230px;
     box-sizing: border-box;
 }
 
 .afop-phone-display-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 4px;
-    margin-bottom: 3px;
+    margin-bottom: 1px;
 }
 
 .afop-phone-pill-link {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 11.5px;
+    gap: 4px;
+    font-size: 11px;
     color: #0f172a;
     background: #f1f5f9;
-    padding: 3px 8px;
-    border-radius: 6px;
+    padding: 2px 6px;
+    border-radius: 4px;
     text-decoration: none !important;
     border: 1px solid #e2e8f0;
     font-weight: 600;
     transition: all 0.15s ease;
+    white-space: nowrap;
 }
 
 .afop-phone-pill-link i {
     color: #2563eb;
-    font-size: 11px;
+    font-size: 10px;
 }
 
 .afop-phone-pill-link:hover {
@@ -257,19 +258,20 @@
 .afop-ip-pill-link {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 11px;
+    gap: 3px;
+    font-size: 10px;
     color: #475569;
     background: #f8fafc;
-    padding: 3px 7px;
-    border-radius: 6px;
+    padding: 2px 5px;
+    border-radius: 4px;
     border: 1px solid #e2e8f0;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .afop-ip-pill-link i {
     color: #0284c7;
-    font-size: 10.5px;
+    font-size: 9.5px;
 }
 
 /* Mini Courier Ratio Graph Card (Table Column) */
@@ -498,11 +500,11 @@ button.afop-courier-mini-graph:hover,
 .afop-customer-orders-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 7px;
-    font-size: 10.5px;
+    gap: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
     font-weight: 700;
-    border-radius: 12px;
+    border-radius: 4px;
     border: 1px solid #cbd5e1;
     background: #f1f5f9;
     color: #475569;
@@ -521,18 +523,19 @@ button.afop-courier-mini-graph:hover,
     background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
     color: #ffffff;
     border-color: #4338ca;
-    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 1px 4px rgba(99, 102, 241, 0.25);
 }
 
 .afop-customer-orders-btn.has-multiple:hover {
     background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-    box-shadow: 0 3px 8px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
 }
 
-/* Compact Action Boxes Row (Side by Side) */
+/* Compact Action Boxes Row (Side by Side in 1 Line) */
 .afop-action-boxes-row {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 3px;
     width: 100%;
     margin-top: 1px;
 }
@@ -542,11 +545,11 @@ button.afop-courier-mini-graph:hover,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 4px 6px;
-    font-size: 10.5px;
+    gap: 3px;
+    padding: 2px 5px;
+    font-size: 10px;
     font-weight: 600;
-    border-radius: 6px;
+    border-radius: 4px;
     border: 1px solid #cbd5e1;
     background: #ffffff;
     color: #334155;
@@ -556,6 +559,7 @@ button.afop-courier-mini-graph:hover,
     text-align: center;
     line-height: 1.2;
     box-sizing: border-box;
+    height: 22px;
 }
 
 .afop-btn-box:hover {
