@@ -198,6 +198,14 @@
 }
 
 /* WooCommerce Orders Table Column Rules */
+.post-type-shop_order .wp-list-table td, 
+.post-type-shop_order .wp-list-table th, 
+.woocommerce_page_wc-orders .wp-list-table td, 
+.woocommerce_page_wc-orders .wp-list-table th {
+    width: 17ch !important;
+    vertical-align: middle !important;
+}
+
 .wp-list-table th.column-afop_courier_ratio,
 .wp-list-table td.column-afop_courier_ratio {
     width: 170px;
