@@ -394,33 +394,84 @@ class AFOP_Admin {
 
         $phone_blocked = !empty($normalized_phone) ? AFOP_Blocklist::is_blocked('phone', $normalized_phone) : false;
         $ip_blocked = !empty($client_ip) ? AFOP_Blocklist::is_blocked('ip', $client_ip) : false;
-        $is_any_blocked = $phone_blocked || $ip_blocked;
 
         $customer_orders = !empty($normalized_phone) ? AFOP_Repeat_Order::get_orders_by_phone($normalized_phone) : array();
         $order_count = count($customer_orders);
+
+        // WhatsApp direct message link
+        $wa_url = '';
+        if (!empty($normalized_phone)) {
+            $clean_phone = preg_replace('/[^0-9]/', '', $normalized_phone);
+            if (strpos($clean_phone, '88') !== 0 && strlen($clean_phone) === 11) {
+                $wa_num = '88' . $clean_phone;
+            } else {
+                $wa_num = $clean_phone;
+            }
+            $wa_msg = rawurlencode(sprintf(__('Hello %s, regarding your order #%s.', 'advance-fake-order-protector'), $customer_name, $order->get_order_number()));
+            $wa_url = 'https://wa.me/' . esc_attr($wa_num) . '?text=' . $wa_msg;
+        }
         ?>
-        <div class="afop-security-actions-cell" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
-            <button type="button" 
-                    class="afop-security-popup-btn <?php echo $is_any_blocked ? 'is-blocked' : 'is-safe'; ?>" 
-                    data-phone="<?php echo esc_attr($normalized_phone); ?>"
-                    data-ip="<?php echo esc_attr($client_ip); ?>"
-                    data-name="<?php echo esc_attr($customer_name); ?>"
-                    data-phone-blocked="<?php echo $phone_blocked ? 'true' : 'false'; ?>"
-                    data-ip-blocked="<?php echo $ip_blocked ? 'true' : 'false'; ?>"
-                    data-order-count="<?php echo intval($order_count); ?>"
-                    title="<?php esc_attr_e('Click to open Security & Blocklist Actions', 'advance-fake-order-protector'); ?>">
-                <div class="afop-sec-btn-inner">
-                    <div class="afop-sec-btn-main">
-                        <i class="fa-solid <?php echo $is_any_blocked ? 'fa-ban' : 'fa-shield-halved'; ?>"></i>
-                        <span><?php echo $is_any_blocked ? esc_html__('Blocked', 'advance-fake-order-protector') : esc_html__('Security Actions', 'advance-fake-order-protector'); ?></span>
-                    </div>
-                    <?php if (!empty($normalized_phone)): ?>
-                        <div class="afop-sec-btn-sub">
-                            <i class="fa-solid fa-phone"></i> <?php echo esc_html($normalized_phone); ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </button>
+        <div class="afop-order-actions-wrap" data-order-id="<?php echo esc_attr($order->get_id()); ?>">
+            <!-- Line 1: Customer Identifiers (Phone, Order IP & WhatsApp) -->
+            <div class="afop-actions-row afop-actions-row-info">
+                <?php if (!empty($normalized_phone)): ?>
+                    <a href="tel:<?php echo esc_attr($normalized_phone); ?>" class="afop-phone-pill-link" title="<?php esc_attr_e('Call Customer', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-phone"></i> <span><?php echo esc_html($normalized_phone); ?></span>
+                    </a>
+                <?php else: ?>
+                    <span class="afop-phone-pill-link afop-empty-pill" title="<?php esc_attr_e('No billing phone available', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-phone-slash"></i> <span><?php esc_html_e('No Phone', 'advance-fake-order-protector'); ?></span>
+                    </span>
+                <?php endif; ?>
+
+                <?php if (!empty($client_ip)): ?>
+                    <span class="afop-ip-pill-link" title="<?php echo esc_attr('Order IP: ' . $client_ip); ?>">
+                        <i class="fa-solid fa-globe"></i> <span><?php echo esc_html($client_ip); ?></span>
+                    </span>
+                <?php else: ?>
+                    <span class="afop-ip-pill-link afop-empty-pill" title="<?php esc_attr_e('No IP recorded', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-solid fa-globe"></i> <span><?php esc_html_e('No IP', 'advance-fake-order-protector'); ?></span>
+                    </span>
+                <?php endif; ?>
+
+                <?php if (!empty($wa_url)): ?>
+                    <a href="<?php echo esc_url($wa_url); ?>" target="_blank" class="afop-wa-pill-link" title="<?php esc_attr_e('Chat on WhatsApp', 'advance-fake-order-protector'); ?>">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </a>
+                <?php endif; ?>
+            </div>
+
+            <!-- Line 2: Actions & History (Order History, Block Phone & Block IP) -->
+            <div class="afop-actions-row afop-actions-row-buttons">
+                <button type="button" 
+                        class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
+                        data-phone="<?php echo esc_attr($normalized_phone); ?>" 
+                        data-name="<?php echo esc_attr($customer_name); ?>"
+                        title="<?php printf(esc_attr__('%d store order(s) by this customer. Click to view history.', 'advance-fake-order-protector'), $order_count); ?>"
+                        <?php echo empty($normalized_phone) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>
+                    <i class="fa-solid fa-boxes-packing"></i> <span><?php echo esc_html($order_count . ($order_count === 1 ? ' Order' : ' Orders')); ?></span>
+                </button>
+
+                <button type="button" 
+                        class="afop-btn-box afop-toggle-block-btn <?php echo $phone_blocked ? 'is-blocked' : 'is-safe'; ?>" 
+                        data-type="phone" 
+                        data-value="<?php echo esc_attr($normalized_phone); ?>"
+                        title="<?php echo $phone_blocked ? esc_attr__('Click to unblock Phone', 'advance-fake-order-protector') : esc_attr__('Click to block Phone', 'advance-fake-order-protector'); ?>"
+                        <?php echo empty($normalized_phone) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>
+                    <span class="afop-btn-icon"><i class="fa-solid <?php echo $phone_blocked ? 'fa-ban' : 'fa-phone-slash'; ?>"></i></span>
+                    <span class="afop-btn-text"><?php echo $phone_blocked ? esc_html__('Blocked', 'advance-fake-order-protector') : esc_html__('Block Phone', 'advance-fake-order-protector'); ?></span>
+                </button>
+
+                <button type="button" 
+                        class="afop-btn-box afop-toggle-block-btn <?php echo $ip_blocked ? 'is-blocked' : 'is-safe'; ?>" 
+                        data-type="ip" 
+                        data-value="<?php echo esc_attr($client_ip); ?>"
+                        title="<?php echo esc_attr(($client_ip ? 'IP: ' . $client_ip . ' - ' : '') . ($ip_blocked ? __('Click to unblock IP', 'advance-fake-order-protector') : __('Click to block IP', 'advance-fake-order-protector'))); ?>"
+                        <?php echo empty($client_ip) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>
+                    <span class="afop-btn-icon"><i class="fa-solid <?php echo $ip_blocked ? 'fa-ban' : 'fa-globe'; ?>"></i></span>
+                    <span class="afop-btn-text"><?php echo $ip_blocked ? esc_html__('IP Blocked', 'advance-fake-order-protector') : esc_html__('Block IP', 'advance-fake-order-protector'); ?></span>
+                </button>
+            </div>
         </div>
         <?php
     }
@@ -749,89 +800,7 @@ class AFOP_Admin {
             </div>
         </div>
 
-        <!-- Security Actions Popup Modal -->
-        <div id="afop-admin-security-modal" class="afop-admin-modal-overlay" style="display:none;">
-            <div class="afop-admin-modal-box" style="max-width: 480px;">
-                <div class="afop-admin-modal-header">
-                    <div class="afop-modal-header-left">
-                        <span class="afop-modal-badge" style="background: #f1f5f9; color: #0f172a;"><i class="fa-solid fa-shield-halved"></i> Security Controls</span>
-                        <h2 id="afop-sec-modal-customer-name"><?php esc_html_e('Security Actions', 'advance-fake-order-protector'); ?></h2>
-                    </div>
-                    <button type="button" class="afop-admin-modal-close" id="afop-close-sec-modal">&times;</button>
-                </div>
 
-                <div class="afop-admin-modal-body" style="padding: 20px;">
-                    <!-- Customer Phone Card -->
-                    <div class="afop-sec-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.02);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <div style="font-size: 13px; font-weight: 700; color: #0f172a;">
-                                <i class="fa-solid fa-phone" style="color: #2563eb; margin-right: 6px;"></i> <?php esc_html_e('Phone Number', 'advance-fake-order-protector'); ?>
-                            </div>
-                            <span id="afop-sec-modal-phone-status" class="afop-badge-status status-unblocked">Safe</span>
-                        </div>
-                        
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                            <a href="#" id="afop-sec-modal-phone-link" class="afop-phone-pill-link" style="font-size: 13px; padding: 5px 10px;" target="_blank">
-                                <i class="fa-solid fa-phone"></i> <strong id="afop-sec-modal-phone-val">017XXXXXXXX</strong>
-                            </a>
-
-                            <button type="button" 
-                                    id="afop-sec-modal-orders-btn"
-                                    class="afop-customer-orders-btn" 
-                                    style="font-size: 12px; padding: 5px 10px;"
-                                    title="<?php esc_attr_e('View customer store order history', 'advance-fake-order-protector'); ?>">
-                                <i class="fa-solid fa-boxes-packing"></i> 
-                                <span id="afop-sec-modal-orders-count">0 Orders</span>
-                            </button>
-                        </div>
-
-                        <div>
-                            <button type="button" 
-                                    id="afop-sec-modal-toggle-phone-btn"
-                                    class="button afop-toggle-block-btn is-safe" 
-                                    style="width: 100%; justify-content: center; height: 34px; font-weight: 600;"
-                                    data-type="phone" 
-                                    data-value="">
-                                <span class="afop-btn-icon"><i class="fa-solid fa-phone-slash"></i></span>
-                                <span class="afop-btn-text">Block Phone Number</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Customer IP Card -->
-                    <div class="afop-sec-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.02);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <div style="font-size: 13px; font-weight: 700; color: #0f172a;">
-                                <i class="fa-solid fa-globe" style="color: #0284c7; margin-right: 6px;"></i> <?php esc_html_e('IP Address', 'advance-fake-order-protector'); ?>
-                            </div>
-                            <span id="afop-sec-modal-ip-status" class="afop-badge-status status-unblocked">Safe</span>
-                        </div>
-
-                        <div style="margin-bottom: 12px;">
-                            <span class="afop-ip-pill-link" style="font-size: 13px; padding: 5px 10px;">
-                                <i class="fa-solid fa-globe"></i> <strong id="afop-sec-modal-ip-val">103.xxx.xxx.xxx</strong>
-                            </span>
-                        </div>
-
-                        <div>
-                            <button type="button" 
-                                    id="afop-sec-modal-toggle-ip-btn"
-                                    class="button afop-toggle-block-btn is-safe" 
-                                    style="width: 100%; justify-content: center; height: 34px; font-weight: 600;"
-                                    data-type="ip" 
-                                    data-value="">
-                                <span class="afop-btn-icon"><i class="fa-solid fa-globe"></i></span>
-                                <span class="afop-btn-text">Block IP Address</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="afop-admin-modal-footer">
-                    <button type="button" class="button" id="afop-close-sec-modal-footer"><?php esc_html_e('Close', 'advance-fake-order-protector'); ?></button>
-                </div>
-            </div>
-        </div>
 
         <!-- Toast Notification Container -->
         <div id="afop-toast-container" class="afop-toast-container"></div>

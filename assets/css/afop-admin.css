@@ -58,10 +58,21 @@
     margin-bottom: 4px;
 }
 
-.afop-stat-card.warning .afop-stat-num { color: #d97706; }
-.afop-stat-card.danger .afop-stat-num { color: #dc2626; }
-.afop-stat-card.success .afop-stat-num { color: #16a34a; }
-.afop-stat-card.info .afop-stat-num { color: #2563eb; }
+.afop-stat-card.warning .afop-stat-num {
+    color: #d97706;
+}
+
+.afop-stat-card.danger .afop-stat-num {
+    color: #dc2626;
+}
+
+.afop-stat-card.success .afop-stat-num {
+    color: #16a34a;
+}
+
+.afop-stat-card.info .afop-stat-num {
+    color: #2563eb;
+}
 
 .afop-stat-card .afop-stat-label {
     font-size: 13px;
@@ -86,7 +97,8 @@
     border: 1px solid #e2e8f0;
 }
 
-.afop-toolbar-left, .afop-toolbar-right {
+.afop-toolbar-left,
+.afop-toolbar-right {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -94,16 +106,18 @@
 }
 
 /* Settings Panels */
-.afop-settings-section, .afop-card-panel {
+.afop-settings-section,
+.afop-card-panel {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 24px;
     margin-top: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
-.afop-settings-section h3, .afop-card-panel h3 {
+.afop-settings-section h3,
+.afop-card-panel h3 {
     margin-top: 0;
     padding-bottom: 12px;
     border-bottom: 1px solid #f1f5f9;
@@ -198,9 +212,9 @@
 }
 
 /* WooCommerce Orders Table Column Rules */
-.post-type-shop_order .wp-list-table td, 
-.post-type-shop_order .wp-list-table th, 
-.woocommerce_page_wc-orders .wp-list-table td, 
+.post-type-shop_order .wp-list-table td,
+.post-type-shop_order .wp-list-table th,
+.woocommerce_page_wc-orders .wp-list-table td,
 .woocommerce_page_wc-orders .wp-list-table th {
     width: 17ch !important;
     vertical-align: middle !important;
@@ -215,155 +229,253 @@
 
 .wp-list-table th.column-afop_security_actions,
 .wp-list-table td.column-afop_security_actions {
-    width: 165px !important;
-    min-width: 150px !important;
+    width: 245px !important;
+    min-width: 235px !important;
     vertical-align: middle !important;
 }
 
-/* Security Popup Trigger Button in Table */
-.afop-security-actions-cell {
-    display: inline-block;
-}
-
-.afop-security-popup-btn {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 4px 8px;
-    border-radius: 6px;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #1e293b;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-    outline: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    box-sizing: border-box;
-}
-
-.afop-security-popup-btn:hover {
-    background: #f8fafc;
-    border-color: #94a3b8;
-    color: #2563eb;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.afop-security-popup-btn.is-blocked {
-    background: #fef2f2;
-    border-color: #fca5a5;
-    color: #dc2626;
-}
-
-.afop-security-popup-btn.is-blocked:hover {
-    background: #fee2e2;
-    border-color: #f87171;
-}
-
-.afop-sec-btn-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1px;
-}
-
-.afop-sec-btn-main {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1.2;
-}
-
-.afop-sec-btn-main i {
-    color: #2563eb;
-    font-size: 11px;
-}
-
-.afop-security-popup-btn.is-blocked .afop-sec-btn-main i {
-    color: #dc2626;
-}
-
-.afop-sec-btn-sub {
-    font-size: 10px;
-    color: #64748b;
-    font-weight: 600;
-    line-height: 1.1;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-}
-
-.afop-sec-btn-sub i {
-    font-size: 9px;
-    opacity: 0.8;
-}
-
-/* Orders Table Action Buttons */
+/* Orders Table Action Buttons Wrap */
 .afop-order-actions-wrap {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    min-width: 160px;
-    max-width: 200px;
+    gap: 4px;
+    width: 100%;
+    min-width: 225px;
+    max-width: 242px;
     box-sizing: border-box;
 }
 
-.afop-phone-display-row {
+.afop-actions-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 4px;
-    margin-bottom: 1px;
+    width: 100%;
 }
 
+/* Line 1: Customer Identifiers (Phone, Order IP & WhatsApp) */
 .afop-phone-pill-link {
+    flex: 1.1;
+    min-width: 0;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 11px;
+    gap: 3px;
+    font-size: 10.5px;
     color: #0f172a;
     background: #f1f5f9;
-    padding: 2px 6px;
+    padding: 2px 5px;
     border-radius: 4px;
     text-decoration: none !important;
     border: 1px solid #e2e8f0;
     font-weight: 600;
     transition: all 0.15s ease;
     white-space: nowrap;
+    line-height: 18px;
+    height: 22px;
+    box-sizing: border-box;
 }
 
 .afop-phone-pill-link i {
     color: #2563eb;
-    font-size: 10px;
+    font-size: 9.5px;
+    flex-shrink: 0;
+}
+
+.afop-phone-pill-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .afop-phone-pill-link:hover {
     background: #e2e8f0;
     color: #1d4ed8;
     border-color: #cbd5e1;
+    transform: translateY(-1px);
 }
 
 .afop-ip-pill-link {
+    flex: 1;
+    min-width: 0;
     display: inline-flex;
     align-items: center;
     gap: 3px;
     font-size: 10px;
-    color: #475569;
+    color: #334155;
     background: #f8fafc;
     padding: 2px 5px;
     border-radius: 4px;
     border: 1px solid #e2e8f0;
     font-weight: 600;
     white-space: nowrap;
+    line-height: 18px;
+    height: 22px;
+    box-sizing: border-box;
+    cursor: default;
+    transition: all 0.15s ease;
 }
 
 .afop-ip-pill-link i {
     color: #0284c7;
+    font-size: 9px;
+    flex-shrink: 0;
+}
+
+.afop-ip-pill-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.afop-ip-pill-link:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.afop-empty-pill {
+    color: #94a3b8 !important;
+    background: #f8fafc !important;
+    border-color: #f1f5f9 !important;
+    cursor: default !important;
+}
+
+.afop-empty-pill i {
+    color: #94a3b8 !important;
+}
+
+.afop-wa-pill-link {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: #25D366;
+    color: #ffffff !important;
+    text-decoration: none !important;
+    font-size: 11px;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(37, 211, 102, 0.2);
+}
+
+.afop-wa-pill-link:hover {
+    background: #1eb956;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(37, 211, 102, 0.4);
+    color: #ffffff !important;
+}
+
+/* Line 2: Order Count & Block Action Buttons */
+.afop-customer-orders-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
     font-size: 9.5px;
+    font-weight: 700;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    height: 22px;
+    line-height: 18px;
+    box-sizing: border-box;
+}
+
+.afop-customer-orders-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+    transform: translateY(-1px);
+    border-color: #94a3b8;
+}
+
+.afop-customer-orders-btn.has-multiple {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #ffffff;
+    border-color: #4338ca;
+    box-shadow: 0 1px 4px rgba(99, 102, 241, 0.25);
+}
+
+.afop-customer-orders-btn.has-multiple:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+}
+
+.afop-btn-box {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 2px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1.2;
+    box-sizing: border-box;
+    height: 22px;
+    outline: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.afop-btn-box .afop-btn-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.afop-btn-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.afop-btn-box.is-safe {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+.afop-btn-box.is-safe:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fca5a5;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.15);
+}
+
+.afop-btn-box.is-blocked {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #f87171;
+    font-weight: 700;
+}
+
+.afop-btn-box.is-blocked:hover {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
+    box-shadow: 0 2px 6px rgba(21, 128, 61, 0.15);
+}
+
+.afop-btn-box:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 /* Mini Courier Ratio Graph Card (Table Column) */
@@ -403,6 +515,7 @@ button.afop-courier-mini-graph:hover,
     background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
     border-color: #bbf7d0;
 }
+
 .afop-courier-mini-graph.risk-safe:hover {
     border-color: #86efac;
     box-shadow: 0 4px 10px rgba(22, 163, 74, 0.12);
@@ -412,6 +525,7 @@ button.afop-courier-mini-graph:hover,
     background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
     border-color: #fed7aa;
 }
+
 .afop-courier-mini-graph.risk-medium:hover {
     border-color: #fde68a;
     box-shadow: 0 4px 10px rgba(217, 119, 6, 0.12);
@@ -421,6 +535,7 @@ button.afop-courier-mini-graph:hover,
     background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
     border-color: #fecaca;
 }
+
 .afop-courier-mini-graph.risk-high:hover {
     border-color: #fca5a5;
     box-shadow: 0 4px 10px rgba(220, 38, 38, 0.12);
@@ -430,6 +545,7 @@ button.afop-courier-mini-graph:hover,
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border-color: #e2e8f0;
 }
+
 .afop-courier-mini-graph.risk-neutral:hover {
     border-color: #cbd5e1;
     background: #f1f5f9;
@@ -466,10 +582,21 @@ button.afop-courier-mini-graph:hover,
     transition: stroke-dasharray 0.4s ease, stroke 0.3s ease;
 }
 
-.risk-safe .afop-circle-progress { stroke: #10b981; }
-.risk-medium .afop-circle-progress { stroke: #f59e0b; }
-.risk-high .afop-circle-progress { stroke: #ef4444; }
-.risk-neutral .afop-circle-progress { stroke: #3b82f6; }
+.risk-safe .afop-circle-progress {
+    stroke: #10b981;
+}
+
+.risk-medium .afop-circle-progress {
+    stroke: #f59e0b;
+}
+
+.risk-high .afop-circle-progress {
+    stroke: #ef4444;
+}
+
+.risk-neutral .afop-circle-progress {
+    stroke: #3b82f6;
+}
 
 .afop-mini-chart-percent {
     position: absolute;
@@ -561,10 +688,21 @@ button.afop-courier-mini-graph:hover,
     transition: width 0.4s ease;
 }
 
-.fill-safe { background: linear-gradient(90deg, #10b981, #059669); }
-.fill-medium { background: linear-gradient(90deg, #f59e0b, #d97706); }
-.fill-high { background: linear-gradient(90deg, #ef4444, #dc2626); }
-.fill-neutral { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.fill-safe {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.fill-medium {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.fill-high {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.fill-neutral {
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
 
 .afop-mini-graph-sub {
     font-size: 9.5px;
@@ -577,112 +715,15 @@ button.afop-courier-mini-graph:hover,
     text-overflow: ellipsis;
 }
 
-.afop-mini-graph-sub i.fa-check { color: #16a34a; }
-.afop-mini-graph-sub i.fa-rotate-left { color: #dc2626; }
-
-/* Phone Display Row & Customer Store Orders Button Badge */
-.afop-phone-display-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    margin-bottom: 4px;
+.afop-mini-graph-sub i.fa-check {
+    color: #16a34a;
 }
 
-.afop-customer-orders-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    font-size: 10px;
-    font-weight: 700;
-    border-radius: 4px;
-    border: 1px solid #cbd5e1;
-    background: #f1f5f9;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-}
-
-.afop-customer-orders-btn:hover {
-    background: #e2e8f0;
-    color: #1e293b;
-    transform: translateY(-1px);
-}
-
-.afop-customer-orders-btn.has-multiple {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    color: #ffffff;
-    border-color: #4338ca;
-    box-shadow: 0 1px 4px rgba(99, 102, 241, 0.25);
-}
-
-.afop-customer-orders-btn.has-multiple:hover {
-    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
-}
-
-/* Compact Action Boxes Row (Side by Side in 1 Line) */
-.afop-action-boxes-row {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    width: 100%;
-    margin-top: 1px;
-}
-
-.afop-btn-box {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 2px 5px;
-    font-size: 10px;
-    font-weight: 600;
-    border-radius: 4px;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #334155;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-    text-align: center;
-    line-height: 1.2;
-    box-sizing: border-box;
-    height: 22px;
-}
-
-.afop-btn-box:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.afop-btn-box.is-safe {
-    background: #f8fafc;
-    color: #475569;
-    border-color: #cbd5e1;
-}
-
-.afop-btn-box.is-safe:hover {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fca5a5;
-}
-
-.afop-btn-box.is-blocked {
-    background: #fef2f2;
+.afop-mini-graph-sub i.fa-rotate-left {
     color: #dc2626;
-    border-color: #f87171;
-    font-weight: 700;
 }
 
-.afop-btn-box.is-blocked:hover {
-    background: #dcfce7;
-    color: #15803d;
-    border-color: #86efac;
-}
+
 
 .afop-btn-action {
     display: inline-flex;
@@ -836,8 +877,15 @@ button.afop-courier-mini-graph:hover,
 }
 
 @keyframes afop-toast-in {
-    from { opacity: 0; transform: translateY(12px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .afop-toast.afop-toast-out {
@@ -875,8 +923,15 @@ button.afop-courier-mini-graph:hover,
 }
 
 @keyframes afop-modal-pop {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .afop-admin-modal-header {
@@ -1050,9 +1105,20 @@ button.afop-courier-mini-graph:hover,
     font-weight: 700;
 }
 
-.afop-risk-badge.safe { background: #dcfce7; color: #166534; }
-.afop-risk-badge.medium { background: #fef9c3; color: #854d0e; }
-.afop-risk-badge.high { background: #fee2e2; color: #991b1b; }
+.afop-risk-badge.safe {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.afop-risk-badge.medium {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.afop-risk-badge.high {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
 .afop-metrics-card {
     display: grid;
@@ -1077,9 +1143,17 @@ button.afop-courier-mini-graph:hover,
     margin-bottom: 2px;
 }
 
-.afop-metric-item.success .afop-metric-val { color: #16a34a; }
-.afop-metric-item.danger .afop-metric-val { color: #dc2626; }
-.afop-metric-item.return-rate .afop-metric-val { color: #d97706; }
+.afop-metric-item.success .afop-metric-val {
+    color: #16a34a;
+}
+
+.afop-metric-item.danger .afop-metric-val {
+    color: #dc2626;
+}
+
+.afop-metric-item.return-rate .afop-metric-val {
+    color: #d97706;
+}
 
 .afop-metric-item .afop-metric-lbl {
     font-size: 11px;
@@ -1106,7 +1180,8 @@ button.afop-courier-mini-graph:hover,
     font-size: 12.5px;
 }
 
-.afop-courier-table th, .afop-courier-table td {
+.afop-courier-table th,
+.afop-courier-table td {
     padding: 8px 12px;
     text-align: left;
     border-bottom: 1px solid #e2e8f0;
@@ -1146,8 +1221,13 @@ button.afop-courier-mini-graph:hover,
 }
 
 @keyframes afop-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @media (max-width: 600px) {
@@ -1214,4 +1294,3 @@ button.afop-courier-mini-graph:hover,
     margin-top: 6px !important;
     color: #64748b !important;
 }
-
