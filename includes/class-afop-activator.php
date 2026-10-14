@@ -16,13 +16,22 @@ class AFOP_Activator {
     public static function activate() {
         self::create_tables();
         self::set_default_options();
+        if (!get_option('afop_privacy_migrated')) {
+            update_option('afop_enable_incomplete_capture', 'no');
+            update_option('afop_courier_consent', 'no');
+            update_option('afop_privacy_migrated', 'yes', false);
+        }
+        if (!wp_next_scheduled('afop_daily_cleanup')) {
+            wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'afop_daily_cleanup');
+        }
+        update_option('afop_db_version', AFOP_VERSION, false);
     }
 
     /**
      * Run on plugin deactivation
      */
     public static function deactivate() {
-        // We do not drop tables on deactivation to preserve merchant data
+        wp_clear_scheduled_hook('afop_daily_cleanup');
     }
 
     /**
@@ -37,9 +46,9 @@ class AFOP_Activator {
 
         // 1. Blocklist Table
         $table_blocklist = $wpdb->prefix . 'afop_blocklist';
-        $sql_blocklist = "CREATE TABLE IF NOT EXISTS {$table_blocklist} (
+        $sql_blocklist = "CREATE TABLE {$table_blocklist} (
             id bigint(20) NOT NULL AUTO_INCREMENT,
-            type varchar(20) NOT NULL DEFAULT 'phone', /* 'phone' or 'ip' */
+            type varchar(20) NOT NULL DEFAULT 'phone',
             value varchar(100) NOT NULL,
             reason text NULL,
             blocked_by varchar(100) DEFAULT 'admin',
@@ -55,7 +64,7 @@ class AFOP_Activator {
 
         // 2. Incomplete Orders Table
         $table_incomplete = $wpdb->prefix . 'afop_incomplete_orders';
-        $sql_incomplete = "CREATE TABLE IF NOT EXISTS {$table_incomplete} (
+        $sql_incomplete = "CREATE TABLE {$table_incomplete} (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             session_key varchar(64) NOT NULL,
             phone varchar(30) NOT NULL,
@@ -66,7 +75,7 @@ class AFOP_Activator {
             cart_data longtext NULL,
             cart_total decimal(10,2) DEFAULT '0.00',
             ip_address varchar(45) NULL,
-            status varchar(30) NOT NULL DEFAULT 'incomplete', /* 'incomplete', 'converted', 'recovered', 'trash' */
+            status varchar(30) NOT NULL DEFAULT 'incomplete',
             order_id bigint(20) NULL DEFAULT 0,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -80,12 +89,12 @@ class AFOP_Activator {
 
         // 3. Order History Log Table (For lightning-fast repeat order checks)
         $table_history = $wpdb->prefix . 'afop_order_history';
-        $sql_history = "CREATE TABLE IF NOT EXISTS {$table_history} (
+        $sql_history = "CREATE TABLE {$table_history} (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             order_id bigint(20) NOT NULL,
             phone varchar(30) NOT NULL,
             ip_address varchar(45) NOT NULL,
-            product_ids text NOT NULL, /* comma separated or json */
+            product_ids text NOT NULL,
             order_total decimal(10,2) DEFAULT '0.00',
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
@@ -98,7 +107,7 @@ class AFOP_Activator {
 
         // 4. Courier Ratio Cache Table
         $table_courier = $wpdb->prefix . 'afop_courier_cache';
-        $sql_courier = "CREATE TABLE IF NOT EXISTS {$table_courier} (
+        $sql_courier = "CREATE TABLE {$table_courier} (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             phone varchar(30) NOT NULL,
             provider varchar(50) NOT NULL DEFAULT 'bdcourier',
@@ -123,7 +132,7 @@ class AFOP_Activator {
     public static function set_default_options() {
         $defaults = array(
             'afop_enable_bd_validation'     => 'yes',
-            'afop_strict_fake_patterns'     => 'yes',
+            'afop_strict_fake_patterns'     => 'no',
             'afop_invalid_phone_title'      => 'ভুল মোবাইল নম্বর!',
             'afop_invalid_phone_msg'        => 'আপনার নম্বরটি ভুল। দয়া করে সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর লিখুন।',
             
@@ -141,7 +150,7 @@ class AFOP_Activator {
             'afop_repeat_whatsapp_btn'      => 'হোয়াটসঅ্যাপে অর্ডার করুন',
             'afop_repeat_whatsapp_msg'      => 'Hello Support, I ordered this product earlier and want to place a repeat order. Please assist me.',
 
-            'afop_enable_incomplete_capture'=> 'yes',
+            'afop_enable_incomplete_capture'=> 'no',
             'afop_incomplete_retention_days'=> 30,
 
             'afop_courier_provider'         => 'bdcourier', // 'bdcourier', 'steadfast', 'fraudbd', 'pathao'
@@ -154,12 +163,13 @@ class AFOP_Activator {
             'afop_pathao_client_secret'     => '',
             'afop_pathao_username'          => '',
             'afop_pathao_password'          => '',
-            'afop_courier_cache_hours'      => 24
+            'afop_courier_cache_hours'      => 24,
+            'afop_courier_consent'         => 'no'
         );
 
         foreach ($defaults as $key => $value) {
             if (get_option($key) === false) {
-                add_option($key, $value);
+                add_option($key, $value, '', false);
             }
         }
     }

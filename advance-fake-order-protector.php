@@ -1,21 +1,21 @@
 <?php
 /**
- * Plugin Name: SARKAR IT Fake protection
- * Plugin URI: https://www.sarkarit.com/
+ * Plugin Name: Sarkar IT Fake Order Protector
+ * Plugin URI: https://www.sarkarit.com/fake-order-protector/
  * Description: Advanced WooCommerce fake order prevention, Bangladeshi phone number validation, IP/Phone 1-click blocklist, repeat order protection with WhatsApp redirection, real-time incomplete orders capture, and multi-courier delivery ratio analytics.
- * Version: 1.7.2
- * Author: SARKAR IT
+ * Version: 1.9.2
+ * Author: Sarkar IT
  * Author URI: https://www.sarkarit.com/
  * Text Domain: advance-fake-order-protector
- * Domain Path: /languages
- * Requires at least: 5.8
+ * Requires at least: 6.4
  * Requires PHP: 7.4
- * WC requires at least: 5.0
- * WC tested up to: 9.0
+ * WC requires at least: 8.9
+ * WC tested up to: 11.2
+ * Requires Plugins: woocommerce
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * 
- * Copyright: © 2026 SARKAR IT (https://www.sarkarit.com/). All Rights Reserved.
- * Flat No: 4A, House, 9 Main Rd, Dhaka 1207
- * Call for Facebook: +88 01785552264 | Call for Web: +88 01789363695 | Email: info@sarkarit.com
+ * Copyright (C) 2026 Sarkar IT. Licensed under GPLv2 or later.
  */
 
 if (!defined('ABSPATH')) {
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define Plugin Constants
-define('AFOP_VERSION', '1.7.2');
+define('AFOP_VERSION', '1.9.2');
 define('AFOP_PLUGIN_FILE', __FILE__);
 define('AFOP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AFOP_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -49,6 +49,7 @@ final class Advance_Fake_Order_Protector {
     public $incomplete_orders;
     public $courier_checker;
     public $admin;
+    public $blocks;
 
     /**
      * Get instance
@@ -64,7 +65,9 @@ final class Advance_Fake_Order_Protector {
      * Constructor
      */
     private function __construct() {
-        $this->load_dependencies();
+        require_once AFOP_PLUGIN_DIR . 'includes/class-afop-activator.php';
+        require_once AFOP_PLUGIN_DIR . 'includes/class-afop-privacy.php';
+        new AFOP_Privacy();
         $this->init_hooks();
     }
 
@@ -79,6 +82,7 @@ final class Advance_Fake_Order_Protector {
         require_once AFOP_PLUGIN_DIR . 'includes/class-afop-incomplete-orders.php';
         require_once AFOP_PLUGIN_DIR . 'includes/class-afop-courier-checker.php';
         require_once AFOP_PLUGIN_DIR . 'includes/class-afop-admin.php';
+        require_once AFOP_PLUGIN_DIR . 'includes/class-afop-blocks.php';
 
         // Initialize modules
         $this->validator         = new AFOP_Validator();
@@ -87,6 +91,7 @@ final class Advance_Fake_Order_Protector {
         $this->incomplete_orders = new AFOP_Incomplete_Orders();
         $this->courier_checker   = new AFOP_Courier_Checker();
         $this->admin             = new AFOP_Admin();
+        $this->blocks            = new AFOP_Blocks();
     }
 
     /**
@@ -110,7 +115,7 @@ final class Advance_Fake_Order_Protector {
     public function declare_woocommerce_compatibility() {
         if (class_exists('\Automattic\WooCommerce\Utilities\FeaturesUtil')) {
             \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', AFOP_PLUGIN_FILE, true);
-            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', AFOP_PLUGIN_FILE, true);
+            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', AFOP_PLUGIN_FILE, defined('WC_VERSION') && version_compare(WC_VERSION, '8.9', '>='));
             \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('order_attribution', AFOP_PLUGIN_FILE, true);
         }
     }
@@ -119,32 +124,37 @@ final class Advance_Fake_Order_Protector {
      * Check if WooCommerce is active
      */
     public function check_woocommerce() {
-        if (!class_exists('WooCommerce')) {
-            add_action('admin_notices', function() {
-                echo '<div class="error"><p><strong>' . esc_html__('Advance Fake Order Protector', 'advance-fake-order-protector') . '</strong> ' . esc_html__('requires WooCommerce to be installed and active.', 'advance-fake-order-protector') . '</p></div>';
-            });
+        if (class_exists('WooCommerce') && defined('WC_VERSION') && version_compare(WC_VERSION, '8.9', '>=')) {
+            $this->load_dependencies();
+            if (get_option('afop_db_version') !== AFOP_VERSION) {
+                AFOP_Activator::activate();
+            }
+            return;
         }
+        add_action('admin_notices', function() {
+            echo '<div class="error"><p>' . esc_html__('Sarkar IT Fake Order Protector requires WooCommerce 8.9 or newer to be installed and active.', 'advance-fake-order-protector') . '</p></div>';
+        });
     }
 
     /**
      * Enqueue frontend scripts and styles
      */
     public function enqueue_frontend_assets() {
-        if (!is_checkout() && !is_cart() && !apply_filters('afop_always_enqueue_frontend', false)) {
+        if (!$this->validator || !function_exists('is_checkout') || !function_exists('WC') || (!is_checkout() && !is_cart() && !has_block('woocommerce/checkout') && !apply_filters('afop_always_enqueue_frontend', false))) {
             return;
         }
 
         wp_enqueue_style(
-            'afop-fontawesome',
-            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+            'afop-icons',
+            AFOP_PLUGIN_URL . 'assets/css/afop-icons.css',
             array(),
-            '6.5.1'
+            AFOP_VERSION
         );
 
         wp_enqueue_style(
             'afop-frontend-css',
             AFOP_PLUGIN_URL . 'assets/css/afop-frontend.css',
-            array('afop-fontawesome'),
+            array('afop-icons'),
             AFOP_VERSION
         );
 
@@ -155,6 +165,10 @@ final class Advance_Fake_Order_Protector {
             AFOP_VERSION,
             true
         );
+
+        if (has_block('woocommerce/checkout')) {
+            wp_enqueue_script('afop-blocks-js', AFOP_PLUGIN_URL . 'assets/js/afop-blocks.js', array('afop-frontend-js', 'wp-data', 'wp-notices', 'wc-blocks-data-store'), AFOP_VERSION, true);
+        }
 
         $whatsapp_num = get_option('afop_whatsapp_number', '');
         $whatsapp_msg = get_option('afop_whatsapp_message', 'Hello Support, my order checkout is blocked. Please help me.');
@@ -173,13 +187,15 @@ final class Advance_Fake_Order_Protector {
             'ajax_url'            => admin_url('admin-ajax.php'),
             'nonce'               => wp_create_nonce('afop_frontend_nonce'),
             'is_checkout'         => is_checkout(),
+            'is_blocks_checkout' => has_block('woocommerce/checkout'),
             'enable_bd_validation'=> get_option('afop_enable_bd_validation', 'yes'),
             'enable_repeat_check' => get_option('afop_enable_repeat_check', 'yes'),
             'repeat_time_limit'   => intval(get_option('afop_repeat_time_limit', 60)), // in minutes
             'whatsapp_number'     => $whatsapp_num,
             'whatsapp_link'       => $wa_link,
             'repeat_whatsapp_link'=> $repeat_wa_link,
-            'enable_incomplete'   => get_option('afop_enable_incomplete_capture', 'yes'),
+            'enable_incomplete'   => get_option('afop_enable_incomplete_capture', 'no'),
+            'strict_fake_patterns' => get_option('afop_strict_fake_patterns', 'no'),
             'i18n'                => array(
                 'invalid_phone_title'   => get_option('afop_invalid_phone_title', 'ভুল মোবাইল নম্বর!'),
                 'invalid_phone_msg'     => get_option('afop_invalid_phone_msg', 'আপনার নম্বরটি ভুল। দয়া করে সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর লিখুন।'),
@@ -199,7 +215,7 @@ final class Advance_Fake_Order_Protector {
      * Render frontend modal templates in footer
      */
     public function render_frontend_modals() {
-        if (!is_checkout() && !is_cart()) {
+        if (!$this->validator || !function_exists('is_checkout') || !function_exists('WC') || (!is_checkout() && !is_cart() && !has_block('woocommerce/checkout'))) {
             return;
         }
         ?>

@@ -24,6 +24,7 @@ class AFOP_Courier_Checker {
      * @return bool
      */
     public static function is_provider_configured($provider) {
+        if (get_option('afop_courier_consent', 'no') !== 'yes') { return false; }
         if ($provider === 'steadfast') {
             return !empty(trim(get_option('afop_steadfast_api_key', '')));
         } elseif ($provider === 'fraudbd') {
@@ -119,6 +120,7 @@ class AFOP_Courier_Checker {
                 'has_api'    => false,
                 'phone'      => $normalized_phone,
                 'provider'   => $provider,
+                /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
                 'message'    => sprintf(__('আপনি %s API অ্যাড করেন নাই। Courier Ratio দেখতে সেটিংস থেকে API Key যুক্ত করুন।', 'advance-fake-order-protector'), ucfirst($provider)),
                 'is_blocked' => AFOP_Blocklist::is_blocked('phone', $normalized_phone),
                 'from_cache' => false
@@ -173,11 +175,13 @@ class AFOP_Courier_Checker {
      * Uses OAuth 2.0 grant_type password / refresh_token as documented in Pathao Courier Merchant API
      */
     public static function get_pathao_access_token() {
+        if (get_option('afop_courier_consent', 'no') !== 'yes') { return new WP_Error('no_consent', 'External courier requests are disabled.'); }
         $client_id     = trim(get_option('afop_pathao_client_id', ''));
         $client_secret = trim(get_option('afop_pathao_client_secret', ''));
         $username      = trim(get_option('afop_pathao_username', ''));
         $password      = trim(get_option('afop_pathao_password', ''));
         $base_url      = rtrim(trim(get_option('afop_pathao_base_url', 'https://courier-api-sandbox.pathao.com')), '/');
+        if (!in_array($base_url, array('https://courier-api-sandbox.pathao.com', 'https://api-hermes.pathao.com'), true)) { return new WP_Error('invalid_host', 'Invalid Pathao API host.'); }
 
         if (empty($client_id) || empty($client_secret) || empty($username) || empty($password)) {
             return new WP_Error('missing_credentials', __('Pathao API Credentials missing. Please enter Client ID, Secret, Username and Password in Settings.', 'advance-fake-order-protector'));
@@ -203,13 +207,14 @@ class AFOP_Courier_Checker {
                 'refresh_token' => $token_data['refresh_token']
             );
 
-            $response = wp_remote_post($endpoint, array(
+            $response = wp_safe_remote_post($endpoint, array(
                 'headers' => array(
                     'Content-Type' => 'application/json',
                     'Accept'       => 'application/json'
                 ),
                 'body'    => wp_json_encode($refresh_payload),
-                'timeout' => 15
+                'timeout' => 15,
+                'redirection' => 0
             ));
 
             if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
@@ -236,13 +241,14 @@ class AFOP_Courier_Checker {
             'password'      => $password
         );
 
-        $response = wp_remote_post($endpoint, array(
+        $response = wp_safe_remote_post($endpoint, array(
             'headers' => array(
                 'Content-Type' => 'application/json',
                 'Accept'       => 'application/json'
             ),
             'body'    => wp_json_encode($payload),
-            'timeout' => 15
+            'timeout' => 15,
+                'redirection' => 0
         ));
 
         if (is_wp_error($response)) {
@@ -289,14 +295,15 @@ class AFOP_Courier_Checker {
         $base_url = rtrim(trim(get_option('afop_pathao_base_url', 'https://courier-api-sandbox.pathao.com')), '/');
         $endpoint = $base_url . '/aladdin/api/v1/user/success-rate';
 
-        $response = wp_remote_post($endpoint, array(
+        $response = wp_safe_remote_post($endpoint, array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $token,
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json'
             ),
             'body'    => wp_json_encode(array('phone' => $clean_phone)),
-            'timeout' => 15
+            'timeout' => 15,
+                'redirection' => 0
         ));
 
         if (is_wp_error($response)) {
@@ -317,6 +324,9 @@ class AFOP_Courier_Checker {
             );
         }
 
+        if ($code !== 200 || !is_array($body)) {
+            return array('success' => false, 'message' => __('Pathao returned an invalid response. Please check your account and try again.', 'advance-fake-order-protector'));
+        }
         return self::format_pathao_response($clean_phone, $body);
     }
 
@@ -398,7 +408,7 @@ class AFOP_Courier_Checker {
 
         $endpoint = 'https://fraudbd.com/api/check-courier-info';
 
-        $response = wp_remote_post($endpoint, array(
+        $response = wp_safe_remote_post($endpoint, array(
             'headers' => array(
                 'api_key'      => $api_key,
                 'Content-Type' => 'application/json',
@@ -407,7 +417,7 @@ class AFOP_Courier_Checker {
             'body'    => wp_json_encode(array(
                 'phone_number' => $clean_phone
             )),
-            'timeout' => 20
+            'timeout' => 20, 'redirection' => 0
         ));
 
         if (is_wp_error($response)) {
@@ -565,14 +575,15 @@ class AFOP_Courier_Checker {
 
         $endpoint = 'https://api.bdcourier.com/courier-check';
         
-        $response = wp_remote_post($endpoint, array(
+        $response = wp_safe_remote_post($endpoint, array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json'
             ),
             'body'    => wp_json_encode(array('phone' => $phone)),
-            'timeout' => 15
+            'timeout' => 15,
+                'redirection' => 0
         ));
 
         if (is_wp_error($response)) {
@@ -611,13 +622,14 @@ class AFOP_Courier_Checker {
 
         $endpoint = 'https://api.steadfast.com.bd/api/v1/fraud_check/' . $phone;
 
-        $response = wp_remote_get($endpoint, array(
+        $response = wp_safe_remote_get($endpoint, array(
             'headers' => array(
                 'Api-Key'     => $api_key,
                 'Secret-Key'  => $secret_key,
                 'Content-Type'=> 'application/json'
             ),
-            'timeout' => 15
+            'timeout' => 15,
+                'redirection' => 0
         ));
 
         if (is_wp_error($response)) {
@@ -709,58 +721,13 @@ class AFOP_Courier_Checker {
     }
 
     /**
-     * Demo / Simulated Stats for Test Mode
-     */
-    private static function get_demo_stats($phone, $provider = 'bdcourier') {
-        $hash = crc32($phone . $provider);
-        $total = 12 + ($hash % 18);
-        $delivered = max(1, $total - ($hash % 4));
-        $returned = $total - $delivered;
-        $rate = round(($delivered / $total) * 100, 1);
-        $return_rate = round(($returned / $total) * 100, 1);
-
-        $risk = ($return_rate > 25) ? 'medium' : 'safe';
-        $provider_labels = array(
-            'bdcourier' => 'BD Courier API (api.bdcourier.com)',
-            'steadfast' => 'Steadfast Courier API',
-            'fraudbd'   => 'FraudBD API (fraudbd.com)',
-            'pathao'    => 'Pathao Courier API (pathao.com)'
-        );
-
-        $p_label = isset($provider_labels[$provider]) ? $provider_labels[$provider] : ucfirst($provider);
-
-        $couriers = array(
-            array('name' => 'Steadfast', 'data_type' => 'delivery', 'total' => round($total * 0.5), 'delivered' => round($delivered * 0.5), 'returned' => round($returned * 0.5)),
-            array('name' => 'Pathao', 'data_type' => 'rating', 'customer_rating' => 'excellent_customer', 'rating_label' => 'Excellent Customer', 'risk_level' => 'low', 'rating_message' => 'Excellent Customer - Very High Success Rate', 'total' => 0, 'delivered' => 0, 'returned' => 0),
-            array('name' => 'Paperfly', 'data_type' => 'delivery', 'total' => round($total * 0.3), 'delivered' => round($delivered * 0.3), 'returned' => 0),
-            array('name' => 'RedX', 'data_type' => 'delivery', 'total' => round($total * 0.2), 'delivered' => round($delivered * 0.2), 'returned' => 0)
-        );
-
-        return array(
-            'success'        => true,
-            'is_demo'        => true,
-            'demo_notice'    => sprintf(__('ডেমো মোড: %s এর লাইভ ডাটার জন্য সেটিংস থেকে API Key যুক্ত করুন।', 'advance-fake-order-protector'), $p_label),
-            'phone'          => $phone,
-            'provider'       => $p_label,
-            'provider_key'   => $provider,
-            'total_orders'   => $total,
-            'delivered'      => $delivered,
-            'returned'       => $returned,
-            'cancelled'      => 0,
-            'delivery_rate'  => $rate,
-            'return_rate'    => $return_rate,
-            'risk_level'     => $risk,
-            'couriers'       => $couriers
-        );
-    }
-
-    /**
-     * Save to cache table
+     * Save a successful provider response to the local courier cache.
      */
     private static function save_to_cache($phone, $provider, $stats) {
         global $wpdb;
         $table = $wpdb->prefix . 'afop_courier_cache';
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- This updates the plugin-owned courier cache; no read cache should suppress writes.
         $wpdb->replace(
             $table,
             array(
@@ -786,10 +753,11 @@ class AFOP_Courier_Checker {
         global $wpdb;
         $table = $wpdb->prefix . 'afop_courier_cache';
         $hours = intval(get_option('afop_courier_cache_hours', 24));
-        $cutoff = date('Y-m-d H:i:s', current_time('timestamp') - ($hours * 3600));
+        $cutoff = gmdate('Y-m-d H:i:s', current_time('timestamp') - ($hours * 3600));
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- This is the plugin-owned courier cache itself; writes update that cache and reads enforce its expiry.
         $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT raw_response FROM {$table} WHERE phone = %s AND provider = %s AND updated_at >= %s LIMIT 1",
+            "SELECT raw_response FROM %i WHERE phone = %s AND provider = %s AND updated_at >= %s LIMIT 1", $table,
             $phone,
             $provider,
             $cutoff
@@ -862,6 +830,9 @@ class AFOP_Courier_Checker {
             wp_send_json_error(array('message' => 'Unauthorized.'));
         }
 
+        if (get_option('afop_courier_consent', 'no') !== 'yes') {
+            wp_send_json_error(array('message' => 'Enable external courier requests in settings first.'));
+        }
         $active_provider = get_option('afop_courier_provider', 'bdcourier');
         $test_phone = '01712345678';
 
@@ -880,14 +851,15 @@ class AFOP_Courier_Checker {
 
             // Perform direct ping to FraudBD check-courier-info endpoint
             $endpoint = 'https://fraudbd.com/api/check-courier-info';
-            $response = wp_remote_post($endpoint, array(
+            $response = wp_safe_remote_post($endpoint, array(
                 'headers' => array(
                     'api_key'      => $api_key,
                     'Content-Type' => 'application/json',
                     'Accept'       => 'application/json'
                 ),
                 'body'    => wp_json_encode(array('phone_number' => $test_phone)),
-                'timeout' => 15
+                'timeout' => 15,
+                'redirection' => 0
             ));
 
             if (is_wp_error($response)) {
@@ -911,6 +883,7 @@ class AFOP_Courier_Checker {
             $stats = self::get_delivery_stats($test_phone, true, $active_provider);
 
             if (!empty($stats['success']) && empty($stats['is_demo'])) {
+                /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
                 wp_send_json_success(array('message' => sprintf(__('%s Connected Successfully! Live courier data is active.', 'advance-fake-order-protector'), ucfirst($active_provider))));
             } else {
                 wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : __('Connection failed. Please verify your API Key and Secret.', 'advance-fake-order-protector')));

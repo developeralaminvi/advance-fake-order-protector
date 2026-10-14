@@ -76,6 +76,10 @@ class AFOP_Repeat_Order {
         global $wpdb;
         $table = $wpdb->prefix . 'afop_order_history';
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Idempotent logging checks the plugin-owned order history.
+        if ($wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE order_id = %d LIMIT 1', $table, $order_id))) { return; }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
         $wpdb->insert(
             $table,
             array(
@@ -98,7 +102,7 @@ class AFOP_Repeat_Order {
      * @param array $cart_product_ids
      * @return array array('is_repeat' => bool, 'minutes_ago' => int, 'previous_order_id' => int)
      */
-    public static function check_repeat_order($phone, $ip = '', $cart_product_ids = array()) {
+    public static function check_repeat_order($phone, $ip = '', $cart_product_ids = array(), $exclude_order_id = 0) {
         if (get_option('afop_enable_repeat_check', 'yes') !== 'yes') {
             return array('is_repeat' => false, 'minutes_ago' => 0, 'previous_order_id' => 0);
         }
@@ -125,26 +129,28 @@ class AFOP_Repeat_Order {
         $table = $wpdb->prefix . 'afop_order_history';
 
         // Query recent orders within time window by phone or IP
-        $cutoff_time = date('Y-m-d H:i:s', current_time('timestamp') - ($time_limit_minutes * 60));
+        $cutoff_time = gmdate('Y-m-d H:i:s', current_time('timestamp') - ($time_limit_minutes * 60));
 
-        $query = $wpdb->prepare(
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
+        $recent_orders = $wpdb->get_results($wpdb->prepare(
             "SELECT order_id, product_ids, created_at 
-             FROM {$table} 
-             WHERE (phone = %s OR ip_address = %s) 
+             FROM %i
+             WHERE ((phone <> '' AND phone = %s) OR (ip_address <> '' AND ip_address = %s))
                AND created_at >= %s 
-             ORDER BY created_at DESC",
+             ORDER BY created_at DESC", $table,
             $normalized_phone,
             $ip,
             $cutoff_time
-        );
-
-        $recent_orders = $wpdb->get_results($query);
+        ));
 
         if (!$recent_orders) {
             return array('is_repeat' => false, 'minutes_ago' => 0, 'previous_order_id' => 0);
         }
 
         foreach ($recent_orders as $prev_order) {
+            if ((int) $prev_order->order_id === (int) $exclude_order_id) { continue; }
+            $previous = wc_get_order($prev_order->order_id);
+            if (!$previous || $previous->has_status(array('failed', 'cancelled', 'refunded', 'trash'))) { continue; }
             $prev_product_ids = array_map('intval', explode(',', $prev_order->product_ids));
             // Check if any product matches
             $common_products = array_intersect($cart_product_ids, $prev_product_ids);
@@ -171,11 +177,6 @@ class AFOP_Repeat_Order {
         check_ajax_referer('afop_frontend_nonce', 'nonce');
 
         $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
-        $confirmed = isset($_POST['confirmed']) && $_POST['confirmed'] === 'yes';
-
-        if ($confirmed) {
-            wp_send_json_success(array('is_repeat' => false, 'bypassed' => true));
-        }
 
         $check = self::check_repeat_order($phone);
 
@@ -205,6 +206,7 @@ class AFOP_Repeat_Order {
             return;
         }
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before invoking woocommerce_checkout_process.
         $billing_phone = isset($_POST['billing_phone']) ? sanitize_text_field(wp_unslash($_POST['billing_phone'])) : '';
         if (empty($billing_phone)) {
             return;
@@ -231,6 +233,7 @@ class AFOP_Repeat_Order {
             return array();
         }
 
+        if (!preg_match('/^01[3-9][0-9]{8}$/', $normalized_phone)) { return array(); }
         $clean = preg_replace('/[^0-9]/', '', $normalized_phone);
         $short = (substr($clean, 0, 2) === '88' && strlen($clean) === 13) ? substr($clean, 2) : $clean;
 
@@ -240,13 +243,14 @@ class AFOP_Repeat_Order {
         // 1. Check HPOS table if HPOS is active
         if (class_exists('\Automattic\WooCommerce\Utilities\OrderUtil') && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled()) {
             $table_addresses = $wpdb->prefix . 'wc_order_addresses';
-            if ($wpdb->get_var("SHOW TABLES LIKE '{$table_addresses}'") === $table_addresses) {
-                $sql = $wpdb->prepare(
-                    "SELECT DISTINCT order_id FROM {$table_addresses} WHERE address_type = 'billing' AND (phone LIKE %s OR phone LIKE %s)",
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
+            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_addresses)) === $table_addresses) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
+                $hpos_ids = $wpdb->get_col($wpdb->prepare(
+                    "SELECT DISTINCT order_id FROM %i WHERE address_type = 'billing' AND (phone LIKE %s OR phone LIKE %s)", $table_addresses,
                     '%' . $wpdb->esc_like($short) . '%',
                     '%' . $wpdb->esc_like($clean) . '%'
-                );
-                $hpos_ids = $wpdb->get_col($sql);
+                ));
                 if (!empty($hpos_ids)) {
                     $order_ids = array_merge($order_ids, $hpos_ids);
                 }
@@ -254,25 +258,26 @@ class AFOP_Repeat_Order {
         }
 
         // 2. Check Postmeta table (Classic CPT or fallback)
-        $sql = $wpdb->prepare(
-            "SELECT DISTINCT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key = '_billing_phone' AND (meta_value LIKE %s OR meta_value LIKE %s)",
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
+        $cpt_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT post_id FROM %i WHERE meta_key = '_billing_phone' AND (meta_value LIKE %s OR meta_value LIKE %s)", $wpdb->prefix . 'postmeta',
             '%' . $wpdb->esc_like($short) . '%',
             '%' . $wpdb->esc_like($clean) . '%'
-        );
-        $cpt_ids = $wpdb->get_col($sql);
+        ));
         if (!empty($cpt_ids)) {
             $order_ids = array_merge($order_ids, $cpt_ids);
         }
 
         // 3. Check afop_order_history table as backup
         $table_history = $wpdb->prefix . 'afop_order_history';
-        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_history}'") === $table_history) {
-            $sql = $wpdb->prepare(
-                "SELECT DISTINCT order_id FROM {$table_history} WHERE phone = %s OR phone = %s",
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_history)) === $table_history) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared reads of security history and WooCommerce indexed phone metadata require current state for duplicate checks.
+            $history_ids = $wpdb->get_col($wpdb->prepare(
+                "SELECT DISTINCT order_id FROM %i WHERE phone = %s OR phone = %s", $table_history,
                 $short,
                 $clean
-            );
-            $history_ids = $wpdb->get_col($sql);
+            ));
             if (!empty($history_ids)) {
                 $order_ids = array_merge($order_ids, $history_ids);
             }
@@ -287,7 +292,7 @@ class AFOP_Repeat_Order {
         $orders_data = array();
         foreach ($order_ids as $id) {
             $order = wc_get_order($id);
-            if (!$order) {
+            if (!$order || AFOP_Validator::normalize_phone($order->get_billing_phone()) !== $normalized_phone) {
                 continue;
             }
 

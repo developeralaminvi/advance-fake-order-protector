@@ -36,29 +36,10 @@ class AFOP_Blocklist {
      * @return string
      */
     public static function get_client_ip() {
-        $ip_keys = array(
-            'HTTP_CF_CONNECTING_IP', // Cloudflare
-            'HTTP_CLIENT_IP',
-            'HTTP_X_FORWARDED_FOR',
-            'HTTP_X_FORWARDED',
-            'HTTP_X_CLUSTER_CLIENT_IP',
-            'HTTP_FORWARDED_FOR',
-            'HTTP_FORWARDED',
-            'REMOTE_ADDR'
-        );
-
-        foreach ($ip_keys as $key) {
-            if (array_key_exists($key, $_SERVER) === true) {
-                foreach (explode(',', $_SERVER[$key]) as $ip) {
-                    $ip = trim($ip);
-                    if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
-                        return $ip;
-                    }
-                }
-            }
-        }
-
-        return isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '127.0.0.1';
+        // Forwarded headers are attacker-controlled unless the host validates its proxy.
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '';
+        $ip = apply_filters('afop_client_ip', $ip);
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
     }
 
     /**
@@ -68,8 +49,12 @@ class AFOP_Blocklist {
      * @param string $value
      * @return bool
      */
-    public static function is_blocked($type, $value) {
-        if (get_option('afop_enable_blocklist', 'yes') !== 'yes') {
+    private static $status_cache = array();
+
+    public static function clear_status_cache() { self::$status_cache = array(); }
+
+    public static function is_blocked($type, $value, $respect_setting = true) {
+        if ($respect_setting && get_option('afop_enable_blocklist', 'yes') !== 'yes') {
             return false;
         }
 
@@ -86,17 +71,18 @@ class AFOP_Blocklist {
             $value = trim($value);
         }
 
+        $cache_key = $type . ':' . $value;
+        if (array_key_exists($cache_key, self::$status_cache)) { return self::$status_cache[$cache_key]; }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
         $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT id, status FROM {$table} WHERE type = %s AND value = %s LIMIT 1",
+            "SELECT id, status FROM %i WHERE type = %s AND value = %s LIMIT 1", $table,
             $type,
             $value
         ));
 
-        if ($row && $row->status === 'blocked') {
-            return true;
-        }
-
-        return false;
+        self::$status_cache[$cache_key] = $row && $row->status === 'blocked';
+        return self::$status_cache[$cache_key];
     }
 
     /**
@@ -122,14 +108,24 @@ class AFOP_Blocklist {
             return false;
         }
 
+        if (!in_array($type, array('phone', 'ip'), true) ||
+            ($type === 'phone' && !preg_match('/^01[3-9][0-9]{8}$/', $value)) ||
+            ($type === 'ip' && !filter_var($value, FILTER_VALIDATE_IP))) {
+            return false;
+        }
+        $reason = wp_html_excerpt(sanitize_textarea_field($reason), 2000);
+        $blocked_by = wp_html_excerpt(sanitize_text_field($blocked_by), 100);
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
         $exists = $wpdb->get_row($wpdb->prepare(
-            "SELECT id FROM {$table} WHERE type = %s AND value = %s LIMIT 1",
+            "SELECT id FROM %i WHERE type = %s AND value = %s LIMIT 1", $table,
             $type,
             $value
         ));
 
         if ($exists) {
-            $wpdb->update(
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
+            $result = $wpdb->update(
                 $table,
                 array(
                     'status'     => 'blocked',
@@ -142,7 +138,8 @@ class AFOP_Blocklist {
                 array('%d')
             );
         } else {
-            $wpdb->insert(
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
+            $result = $wpdb->insert(
                 $table,
                 array(
                     'type'       => $type,
@@ -157,7 +154,8 @@ class AFOP_Blocklist {
             );
         }
 
-        return true;
+        self::clear_status_cache();
+        return $result !== false;
     }
 
     /**
@@ -181,7 +179,8 @@ class AFOP_Blocklist {
             return false;
         }
 
-        $wpdb->update(
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
+        $result = $wpdb->update(
             $table,
             array(
                 'status'     => 'unblocked',
@@ -192,7 +191,8 @@ class AFOP_Blocklist {
             array('%s', '%s')
         );
 
-        return true;
+        self::clear_status_cache();
+        return $result !== false;
     }
 
     /**
@@ -203,11 +203,11 @@ class AFOP_Blocklist {
      * @return bool New blocked state (true = now blocked, false = now unblocked)
      */
     public static function toggle($type, $value) {
-        if (self::is_blocked($type, $value)) {
-            self::unblock($type, $value);
+        if (self::is_blocked($type, $value, false)) {
+            if (!self::unblock($type, $value)) { return new WP_Error('afop_block_write', 'Could not update the blocklist.'); }
             return false;
         } else {
-            self::block($type, $value, 'Blocked from Orders Table');
+            if (!self::block($type, $value, 'Blocked from Orders Table')) { return new WP_Error('afop_block_write', 'Invalid value or blocklist write failed.'); }
             return true;
         }
     }
@@ -229,6 +229,7 @@ class AFOP_Blocklist {
         }
 
         // 2. Check Phone
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before invoking woocommerce_checkout_process.
         $billing_phone = isset($_POST['billing_phone']) ? sanitize_text_field(wp_unslash($_POST['billing_phone'])) : '';
         if (!empty($billing_phone)) {
             $normalized_phone = AFOP_Validator::normalize_phone($billing_phone);
@@ -286,11 +287,14 @@ class AFOP_Blocklist {
         }
 
         $is_now_blocked = self::toggle($type, $value);
+        if (is_wp_error($is_now_blocked)) { wp_send_json_error(array('message' => $is_now_blocked->get_error_message()), 400); }
         $clean_val = ($type === 'phone') ? AFOP_Validator::normalize_phone($value) : $value;
 
         $msg = $is_now_blocked
-            ? sprintf(__('🚫 %s "%s" সফলভাবে ব্লক করা হয়েছে!', 'advance-fake-order-protector'), ucfirst($type), $clean_val)
-            : sprintf(__('✅ %s "%s" আনব্লক করা হয়েছে!', 'advance-fake-order-protector'), ucfirst($type), $clean_val);
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
+            ? sprintf(__('🚫 %1$s "%2$s" সফলভাবে ব্লক করা হয়েছে!', 'advance-fake-order-protector'), ucfirst($type), $clean_val)
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
+            : sprintf(__('✅ %1$s "%2$s" আনব্লক করা হয়েছে!', 'advance-fake-order-protector'), ucfirst($type), $clean_val);
 
         wp_send_json_success(array(
             'is_blocked' => $is_now_blocked,
@@ -322,9 +326,12 @@ class AFOP_Blocklist {
             $value = AFOP_Validator::normalize_phone($value);
         }
 
-        self::block($type, $value, $reason, wp_get_current_user()->user_login);
+        if (!self::block($type, $value, $reason, wp_get_current_user()->user_login)) {
+            wp_send_json_error(array('message' => 'Enter a valid phone number or IP address and try again.'), 400);
+        }
 
         wp_send_json_success(array(
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
             'message' => sprintf(__('%s successfully added to blocklist!', 'advance-fake-order-protector'), ucfirst($type))
         ));
     }
@@ -359,20 +366,19 @@ class AFOP_Blocklist {
             if ($type === 'phone') {
                 $val = AFOP_Validator::normalize_phone($val);
                 if (strlen($val) >= 11) {
-                    self::block('phone', $val, $reason, $admin_user);
-                    $count++;
+                    if (self::block('phone', $val, $reason, $admin_user)) { $count++; }
                 }
             } else {
                 if (filter_var($val, FILTER_VALIDATE_IP)) {
-                    self::block('ip', $val, $reason, $admin_user);
-                    $count++;
+                    if (self::block('ip', $val, $reason, $admin_user)) { $count++; }
                 }
             }
         }
 
         wp_send_json_success(array(
             'count'   => $count,
-            'message' => sprintf(__('%d %s entries successfully added to blocklist!', 'advance-fake-order-protector'), $count, ucfirst($type))
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
+            'message' => sprintf(__('%1$d %2$s entries successfully added to blocklist!', 'advance-fake-order-protector'), $count, ucfirst($type))
         ));
     }
 
@@ -393,7 +399,10 @@ class AFOP_Blocklist {
 
         global $wpdb;
         $table = $wpdb->prefix . 'afop_blocklist';
-        $wpdb->delete($table, array('id' => $id), array('%d'));
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
+        $result = $wpdb->delete($table, array('id' => $id), array('%d'));
+        self::clear_status_cache();
+        if ($result === false) { wp_send_json_error(array('message' => 'Could not delete the record.'), 500); }
 
         wp_send_json_success(array('message' => __('Record removed from blocklist.', 'advance-fake-order-protector')));
     }
@@ -416,11 +425,17 @@ class AFOP_Blocklist {
 
         global $wpdb;
         $table = $wpdb->prefix . 'afop_blocklist';
-        $ids_placeholder = implode(',', array_fill(0, count($ids), '%d'));
-
-        $wpdb->query($wpdb->prepare("DELETE FROM {$table} WHERE id IN ({$ids_placeholder})", $ids));
+        foreach ($ids as $id) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
+            if ($wpdb->delete($table, array('id' => absint($id)), array('%d')) === false) {
+                self::clear_status_cache();
+                wp_send_json_error(array('message' => 'Could not delete all selected records. Please refresh and try again.'), 500);
+            }
+        }
+        self::clear_status_cache();
 
         wp_send_json_success(array(
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
             'message' => sprintf(__('%d records removed from blocklist.', 'advance-fake-order-protector'), count($ids))
         ));
     }
@@ -437,9 +452,10 @@ class AFOP_Blocklist {
 
         global $wpdb;
         $table = $wpdb->prefix . 'afop_blocklist';
-        $results = $wpdb->get_results("SELECT type, value, reason, status, blocked_by, created_at FROM {$table} ORDER BY id DESC", ARRAY_A);
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned blocklist uses prepared SQL; reads have a request cache invalidated by mutations.
+        $results = $wpdb->get_results($wpdb->prepare('SELECT type, value, reason, status, blocked_by, created_at FROM %i ORDER BY id DESC', $table), ARRAY_A);
 
-        $filename = 'afop_blocklist_export_' . date('Y-m-d_H-i') . '.csv';
+        $filename = 'afop_blocklist_export_' . gmdate('Y-m-d_H-i') . '.csv';
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=' . $filename);
@@ -453,6 +469,7 @@ class AFOP_Blocklist {
 
         if (!empty($results)) {
             foreach ($results as $row) {
+                $row = array_map(array(__CLASS__, 'csv_safe_cell'), $row);
                 fputcsv($output, array(
                     $row['type'],
                     $row['value'],
@@ -464,6 +481,7 @@ class AFOP_Blocklist {
             }
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close php://output CSV stream.
         fclose($output);
         exit;
     }
@@ -478,11 +496,17 @@ class AFOP_Blocklist {
             wp_send_json_error(array('message' => 'Unauthorized user'));
         }
 
-        if (empty($_FILES['file']) || !isset($_FILES['file']['tmp_name'])) {
+        if (empty($_FILES['file']) || !isset($_FILES['file']['tmp_name'], $_FILES['file']['error'], $_FILES['file']['size'])) {
             wp_send_json_error(array('message' => 'Please upload a valid CSV or TXT file.'));
         }
 
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Use the exact PHP upload path; is_uploaded_file verifies it before any read.
+        if ($_FILES['file']['error'] !== UPLOAD_ERR_OK || $_FILES['file']['size'] > 2 * MB_IN_BYTES || !is_uploaded_file($_FILES['file']['tmp_name'])) {
+            wp_send_json_error(array('message' => 'Upload a CSV/TXT file smaller than 2 MB.'));
+        }
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Use the exact PHP upload path; is_uploaded_file verifies it before any read.
         $file_tmp = $_FILES['file']['tmp_name'];
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Read only the PHP-verified temporary upload as a CSV stream.
         $handle = fopen($file_tmp, 'r');
         if (!$handle) {
             wp_send_json_error(array('message' => 'Could not read uploaded file.'));
@@ -521,16 +545,24 @@ class AFOP_Blocklist {
             }
 
             if (!empty($value)) {
-                self::block($type, $value, $reason, $admin_user);
-                $imported++;
+                if (self::block($type, $value, $reason, $admin_user)) {
+                    $imported++;
+                }
             }
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the verified temporary CSV upload.
         fclose($handle);
 
         wp_send_json_success(array(
             'imported' => $imported,
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
             'message'  => sprintf(__('Successfully imported %d entries into the blocklist!', 'advance-fake-order-protector'), $imported)
         ));
+    }
+
+    public static function csv_safe_cell($value) {
+        $value = (string) $value;
+        return preg_match('/^[\s]*[=+@-]/', $value) ? "'" . $value : $value;
     }
 }

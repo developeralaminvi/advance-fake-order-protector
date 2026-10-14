@@ -57,7 +57,7 @@ class AFOP_Admin {
 
         // 2. Main Plugin Top-Level Menu
         add_menu_page(
-            __('SARKAR IT Fake protection', 'advance-fake-order-protector'),
+            __('Sarkar IT Fake Order Protector', 'advance-fake-order-protector'),
             __('SARKAR IT Protection', 'advance-fake-order-protector'),
             'manage_woocommerce',
             'afop-settings',
@@ -100,7 +100,8 @@ class AFOP_Admin {
     private function get_incomplete_count() {
         global $wpdb;
         $table = $wpdb->prefix . 'afop_incomplete_orders';
-        $count = $wpdb->get_var("SELECT COUNT(id) FROM {$table} WHERE status = 'incomplete'");
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM %i WHERE status = 'incomplete'", $table));
         return intval($count);
     }
 
@@ -122,16 +123,16 @@ class AFOP_Admin {
 
         // FontAwesome 6
         wp_enqueue_style(
-            'afop-fontawesome',
-            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+            'afop-icons',
+            AFOP_PLUGIN_URL . 'assets/css/afop-icons.css',
             array(),
-            '6.5.1'
+            AFOP_VERSION
         );
 
         wp_enqueue_style(
             'afop-admin-css',
             AFOP_PLUGIN_URL . 'assets/css/afop-admin.css',
-            array('afop-fontawesome'),
+            array('afop-icons'),
             AFOP_VERSION
         );
 
@@ -357,17 +358,17 @@ class AFOP_Admin {
             <div class="afop-mini-chart-ring">
                 <svg viewBox="0 0 36 36" class="afop-circular-chart">
                     <path class="afop-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="afop-circle-progress" stroke-dasharray="<?php echo $has_data ? $rate_num : '0'; ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="afop-circle-progress" stroke-dasharray="<?php echo esc_attr($has_data ? $rate_num : '0'); ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                 </svg>
-                <span class="afop-mini-chart-percent"><?php echo $has_data ? ($rate_num . '%') : '<i class="fa-solid fa-chart-pie"></i>'; ?></span>
+                <span class="afop-mini-chart-percent"><?php echo $has_data ? esc_html($rate_num . '%') : '<i class="fa-solid fa-chart-pie"></i>'; ?></span>
             </div>
             <div class="afop-mini-graph-info">
                 <div class="afop-mini-graph-header">
-                    <span class="afop-mini-rate-text"><?php echo $has_data ? sprintf(__('%d%% Delivery', 'advance-fake-order-protector'), $rate_num) : __('Courier Ratio', 'advance-fake-order-protector'); ?></span>
+                    <span class="afop-mini-rate-text"><?php /* translators: Numeric placeholders are counts or percentages; string placeholders identify the customer or blocklist item. */ echo $has_data ? esc_html(sprintf(__('%d%% Delivery', 'advance-fake-order-protector'), $rate_num)) : esc_html__('Courier Ratio', 'advance-fake-order-protector'); ?></span>
                     <span class="afop-mini-risk-tag tag-<?php echo esc_attr($risk_level); ?>"><?php echo esc_html($risk_label); ?></span>
                 </div>
                 <div class="afop-mini-bar-track">
-                    <div class="afop-mini-bar-fill fill-<?php echo esc_attr($risk_level); ?>" style="width: <?php echo $has_data ? $rate_num : '0'; ?>%;"></div>
+                    <div class="afop-mini-bar-fill fill-<?php echo esc_attr($risk_level); ?>" style="width: <?php echo esc_attr($has_data ? $rate_num : '0'); ?>%;"></div>
                 </div>
                 <div class="afop-mini-graph-sub">
                     <?php if ($has_data): ?>
@@ -407,7 +408,8 @@ class AFOP_Admin {
             } else {
                 $wa_num = $clean_phone;
             }
-            $wa_msg = rawurlencode(sprintf(__('Hello %s, regarding your order #%s.', 'advance-fake-order-protector'), $customer_name, $order->get_order_number()));
+            /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
+            $wa_msg = rawurlencode(sprintf(__('Hello %1$s, regarding your order #%2$s.', 'advance-fake-order-protector'), $customer_name, $order->get_order_number()));
             $wa_url = 'https://wa.me/' . esc_attr($wa_num) . '?text=' . $wa_msg;
         }
         ?>
@@ -447,7 +449,7 @@ class AFOP_Admin {
                         class="afop-customer-orders-btn <?php echo $order_count > 1 ? 'has-multiple' : ''; ?>" 
                         data-phone="<?php echo esc_attr($normalized_phone); ?>" 
                         data-name="<?php echo esc_attr($customer_name); ?>"
-                        title="<?php printf(esc_attr__('%d store order(s) by this customer. Click to view history.', 'advance-fake-order-protector'), $order_count); ?>"
+                        title="<?php /* translators: Numeric placeholders are counts or percentages; string placeholders identify the customer or blocklist item. */ echo esc_attr(sprintf(__('%d store order(s) by this customer. Click to view history.', 'advance-fake-order-protector'), $order_count)); ?>"
                         <?php echo empty($normalized_phone) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>
                     <i class="fa-solid fa-boxes-packing"></i> <span><?php echo esc_html($order_count . ($order_count === 1 ? ' Order' : ' Orders')); ?></span>
                 </button>
@@ -599,17 +601,17 @@ class AFOP_Admin {
                     <div class="afop-mini-chart-ring">
                         <svg viewBox="0 0 36 36" class="afop-circular-chart">
                             <path class="afop-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="afop-circle-progress" stroke-dasharray="<?php echo $has_data ? $rate_num : '0'; ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="afop-circle-progress" stroke-dasharray="<?php echo esc_attr($has_data ? $rate_num : '0'); ?>, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                         </svg>
-                        <span class="afop-mini-chart-percent"><?php echo $has_data ? ($rate_num . '%') : '<i class="fa-solid fa-chart-pie"></i>'; ?></span>
+                        <span class="afop-mini-chart-percent"><?php echo $has_data ? esc_html($rate_num . '%') : '<i class="fa-solid fa-chart-pie"></i>'; ?></span>
                     </div>
                     <div class="afop-mini-graph-info">
                         <div class="afop-mini-graph-header">
-                            <span class="afop-mini-rate-text"><?php echo $has_data ? sprintf(__('%d%% Delivery Rate', 'advance-fake-order-protector'), $rate_num) : __('Check Delivery Ratio', 'advance-fake-order-protector'); ?></span>
+                            <span class="afop-mini-rate-text"><?php /* translators: Numeric placeholders are counts or percentages; string placeholders identify the customer or blocklist item. */ echo $has_data ? esc_html(sprintf(__('%d%% Delivery Rate', 'advance-fake-order-protector'), $rate_num)) : esc_html__('Check Delivery Ratio', 'advance-fake-order-protector'); ?></span>
                             <span class="afop-mini-risk-tag tag-<?php echo esc_attr($risk_level); ?>"><?php echo esc_html($risk_label); ?></span>
                         </div>
                         <div class="afop-mini-bar-track">
-                            <div class="afop-mini-bar-fill fill-<?php echo esc_attr($risk_level); ?>" style="width: <?php echo $has_data ? $rate_num : '0'; ?>%;"></div>
+                            <div class="afop-mini-bar-fill fill-<?php echo esc_attr($risk_level); ?>" style="width: <?php echo esc_attr($has_data ? $rate_num : '0'); ?>%;"></div>
                         </div>
                         <div class="afop-mini-graph-sub">
                             <?php if ($has_data): ?>
@@ -811,7 +813,7 @@ class AFOP_Admin {
      * Handle Settings Form Submission
      */
     public function handle_save_settings() {
-        if (!isset($_POST['afop_save_settings']) || !wp_verify_nonce($_POST['afop_settings_nonce'], 'afop_save_settings_action')) {
+        if (!isset($_POST['afop_save_settings'], $_POST['afop_settings_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['afop_settings_nonce'])), 'afop_save_settings_action')) {
             return;
         }
 
@@ -837,6 +839,8 @@ class AFOP_Admin {
             'afop_repeat_whatsapp_btn'      => 'text',
             'afop_repeat_whatsapp_msg'      => 'textarea',
             'afop_enable_incomplete_capture'=> 'yes_no',
+            'afop_incomplete_retention_days'=> 'int',
+            'afop_courier_consent' => 'yes_no',
             'afop_courier_provider'         => 'text',
             'afop_bdcourier_api_key'        => 'text',
             'afop_steadfast_api_key'        => 'text',
@@ -850,12 +854,31 @@ class AFOP_Admin {
             'afop_courier_cache_hours'      => 'int'
         );
 
+        $tab = isset($_POST['afop_settings_tab']) ? sanitize_key(wp_unslash($_POST['afop_settings_tab'])) : '';
+        $tabs = array(
+            'general' => array('afop_whatsapp_number', 'afop_whatsapp_message', 'afop_whatsapp_btn_text', 'afop_enable_blocklist', 'afop_blocked_title', 'afop_blocked_msg', 'afop_enable_incomplete_capture', 'afop_incomplete_retention_days'),
+            'validation' => array('afop_enable_bd_validation', 'afop_strict_fake_patterns', 'afop_invalid_phone_title', 'afop_invalid_phone_msg'),
+            'repeat' => array('afop_enable_repeat_check', 'afop_repeat_time_limit', 'afop_repeat_order_title', 'afop_repeat_order_msg', 'afop_repeat_whatsapp_btn', 'afop_repeat_whatsapp_msg'),
+            'courier' => array('afop_courier_consent', 'afop_courier_provider', 'afop_courier_cache_hours', 'afop_bdcourier_api_key', 'afop_steadfast_api_key', 'afop_steadfast_secret_key', 'afop_fraudbd_api_key', 'afop_pathao_base_url', 'afop_pathao_client_id', 'afop_pathao_client_secret', 'afop_pathao_username', 'afop_pathao_password'),
+        );
+        if (!isset($tabs[$tab])) { return; }
         foreach ($fields as $field => $type) {
+            if (!in_array($field, $tabs[$tab], true)) { continue; }
+            if ($field === 'afop_pathao_base_url') {
+                $url = isset($_POST[$field]) ? esc_url_raw(wp_unslash($_POST[$field])) : '';
+                if (in_array($url, array('https://api-hermes.pathao.com', 'https://courier-api-sandbox.pathao.com'), true)) { update_option($field, $url); }
+                delete_option('afop_pathao_token_data');
+                continue;
+            }
+            if (strpos($field, 'afop_pathao_') === 0) { delete_option('afop_pathao_token_data'); }
+            if ($field === 'afop_courier_provider' && (!isset($_POST[$field]) || !in_array($_POST[$field], array('bdcourier', 'steadfast', 'fraudbd', 'pathao'), true))) { continue; }
+
             if ($type === 'yes_no') {
                 $val = isset($_POST[$field]) ? 'yes' : 'no';
                 update_option($field, $val);
             } elseif ($type === 'int') {
-                $val = isset($_POST[$field]) ? intval($_POST[$field]) : 0;
+                $limits = array('afop_repeat_time_limit' => 1440, 'afop_courier_cache_hours' => 168, 'afop_incomplete_retention_days' => 365);
+                $val = max(1, min($limits[$field], isset($_POST[$field]) ? absint($_POST[$field]) : 1));
                 update_option($field, $val);
             } elseif ($type === 'textarea') {
                 $val = isset($_POST[$field]) ? sanitize_textarea_field(wp_unslash($_POST[$field])) : '';
@@ -893,7 +916,7 @@ class AFOP_Admin {
         wp_send_json_success(array(
             'phone'            => AFOP_Validator::normalize_phone($phone),
             'order_count'      => count($orders),
-            'formatted_spent'  => wc_price($total_spent),
+            'formatted_spent'  => wp_strip_all_tags(wc_price($total_spent)),
             'orders'           => $orders
         ));
     }
@@ -902,13 +925,14 @@ class AFOP_Admin {
      * Render Settings Page
      */
     public function render_settings_page() {
-        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation/search; menu capability controls access, mutations have nonces.
+        $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'general';
         settings_errors('afop_messages');
         ?>
         <div class="wrap afop-admin-wrap">
             <div class="afop-header-banner">
                 <div class="afop-header-content">
-                    <h1><i class="fa-solid fa-shield-halved"></i> SARKAR IT Fake protection</h1>
+                    <h1><i class="fa-solid fa-shield-halved"></i> Sarkar IT Fake Order Protector</h1>
                     <p>WooCommerce Fake Order Defense, Bangladeshi Phone Verification, Repeat Order Protection with WhatsApp & Multi-Courier Ratio Analysis</p>
                 </div>
             </div>
@@ -922,6 +946,7 @@ class AFOP_Admin {
 
             <form method="post" action="">
                 <?php wp_nonce_field('afop_save_settings_action', 'afop_settings_nonce'); ?>
+                <input type="hidden" name="afop_settings_tab" value="<?php echo esc_attr($active_tab); ?>">
 
                 <?php if ($active_tab === 'general'): ?>
                     <div class="afop-settings-section">
@@ -972,14 +997,16 @@ class AFOP_Admin {
                                 <th scope="row">Enable Real-Time Incomplete Capture</th>
                                 <td>
                                     <label>
-                                        <input type="checkbox" name="afop_enable_incomplete_capture" value="yes" <?php checked(get_option('afop_enable_incomplete_capture', 'yes'), 'yes'); ?>>
-                                        চেকআউটে ১১ ডিজিটের ফোন নম্বর টাইপ করার সাথে সাথে ইনকমপ্লিট অর্ডার হিসেবে লিড সেভ করুন।
+                                        <input type="checkbox" name="afop_enable_incomplete_capture" value="yes" <?php checked(get_option('afop_enable_incomplete_capture', 'no'), 'yes'); ?>>
+                                        গ্রাহক সম্মতি দেওয়ার পরে সঠিক ফোন নম্বরসহ অসম্পূর্ণ চেকআউটের তথ্য সেভ করুন।
                                     </label>
                                 </td>
                             </tr>
                         </table>
                     </div>
 
+                    <p>Incomplete capture requires the customer's unchecked consent box at checkout. Update your store privacy policy before enabling it.</p>
+                    <label>Lead retention (days): <input type="number" name="afop_incomplete_retention_days" min="1" max="365" value="<?php echo esc_attr(get_option('afop_incomplete_retention_days', 30)); ?>"></label>
                 <?php elseif ($active_tab === 'validation'): ?>
                     <div class="afop-settings-section">
                         <h3><i class="fa-solid fa-mobile-screen"></i> Bangladeshi Mobile Number Validation Rules</h3>
@@ -997,7 +1024,7 @@ class AFOP_Admin {
                                 <th scope="row">Strict Fake Pattern Blocker</th>
                                 <td>
                                     <label>
-                                        <input type="checkbox" name="afop_strict_fake_patterns" value="yes" <?php checked(get_option('afop_strict_fake_patterns', 'yes'), 'yes'); ?>>
+                                        <input type="checkbox" name="afop_strict_fake_patterns" value="yes" <?php checked(get_option('afop_strict_fake_patterns', 'no'), 'yes'); ?>>
                                         ডামি/টেস্ট নম্বর (যেমন: 01700000000, 01234567890, 01711111111) স্বয়ংক্রিয়ভাবে ব্লক করুন।
                                     </label>
                                 </td>
@@ -1070,6 +1097,7 @@ class AFOP_Admin {
                         <h3><i class="fa-solid fa-truck-fast"></i> Courier API & Fraud Ratio Configuration</h3>
                         <p class="description" style="margin-bottom: 20px;">এখানে প্রতিটি কুরিয়ার সার্ভিসের API সেটিংস আলাদা আলাদা সেকশনে সুন্দরভাবে সাজানো হয়েছে। আপনার ব্যবহৃত কুরিয়ারের ক্রেডেনশিয়াল টাইপ করে সেভ করুন।</p>
 
+                        <p><label><input type="checkbox" name="afop_courier_consent" value="yes" <?php checked(get_option('afop_courier_consent', 'no'), 'yes'); ?>> Enable external courier requests. Customer phone numbers are sent to configured providers when an administrator requests a lookup or tests a connection. Review each provider's terms and privacy policy and inform customers before enabling.</label></p>
                         <!-- 1. General & Default Provider -->
                         <div class="afop-courier-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px;">
                             <h4 style="margin: 0 0 15px; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
@@ -1220,7 +1248,7 @@ class AFOP_Admin {
                     <p><i class="fa-brands fa-facebook"></i> Call for Facebook: <a href="tel:+8801785552264">+88 01785552264</a></p>
                     <p><i class="fa-solid fa-phone"></i> Call for Web: <a href="tel:+8801789363695">+88 01789363695</a></p>
                     <p><i class="fa-solid fa-envelope"></i> Email: <a href="mailto:info@sarkarit.com">info@sarkarit.com</a></p>
-                    <p class="afop-copyright-text"><small>&copy; <?php echo date('Y'); ?> <a href="https://www.sarkarit.com/" target="_blank">SARKAR IT</a>. All Rights Reserved.</small></p>
+                    <p class="afop-copyright-text"><small>&copy; <?php echo esc_html(wp_date('Y')); ?> <a href="https://www.sarkarit.com/" target="_blank">SARKAR IT</a>. GPLv2 or later.</small></p>
                 </div>
             </div>
         </div>
@@ -1235,24 +1263,27 @@ class AFOP_Admin {
         $table = $wpdb->prefix . 'afop_incomplete_orders';
 
         // Stats
-        $total_leads = $wpdb->get_var("SELECT COUNT(id) FROM {$table} WHERE status = 'incomplete'");
-        $total_converted = $wpdb->get_var("SELECT COUNT(id) FROM {$table} WHERE status = 'converted'");
-        $total_recovered = $wpdb->get_var("SELECT COUNT(id) FROM {$table} WHERE status = 'recovered'");
-        $lost_revenue = $wpdb->get_var("SELECT SUM(cart_total) FROM {$table} WHERE status = 'incomplete'") ?: 0.00;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $total_leads = $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM %i WHERE status = 'incomplete'", $table));
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $total_converted = $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM %i WHERE status = 'converted'", $table));
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $total_recovered = $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM %i WHERE status = 'recovered'", $table));
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $lost_revenue = $wpdb->get_var($wpdb->prepare("SELECT SUM(cart_total) FROM %i WHERE status = 'incomplete'", $table)) ?: 0.00;
 
         // Fetch active incomplete items
-        $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
-        $filter_status = isset($_GET['status_filter']) ? sanitize_text_field($_GET['status_filter']) : 'incomplete';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation/search; menu capability controls access, mutations have nonces.
+        $search = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation/search; menu capability controls access, mutations have nonces.
+        $filter_status = isset($_GET['status_filter']) ? sanitize_text_field(wp_unslash($_GET['status_filter'])) : 'incomplete';
 
-        $where = "WHERE 1=1";
-        if ($filter_status !== 'all') {
-            $where .= $wpdb->prepare(" AND status = %s", $filter_status);
-        }
-        if (!empty($search)) {
-            $where .= $wpdb->prepare(" AND (phone LIKE %s OR name LIKE %s OR address LIKE %s)", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%');
-        }
-
-        $items = $wpdb->get_results("SELECT * FROM {$table} {$where} ORDER BY updated_at DESC LIMIT 100");
+        $like = '%' . $wpdb->esc_like($search) . '%';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $items = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM %i WHERE (%s = 'all' OR status = %s) AND (%s = '' OR phone LIKE %s OR name LIKE %s OR address LIKE %s) ORDER BY updated_at DESC LIMIT 100", $table,
+            $filter_status, $filter_status, $search, $like, $like, $like
+        ));
         ?>
         <div class="wrap afop-admin-wrap">
             <div class="afop-header-banner">
@@ -1269,7 +1300,7 @@ class AFOP_Admin {
                     <span class="afop-stat-label"><i class="fa-solid fa-cart-shopping"></i> Pending Incomplete</span>
                 </div>
                 <div class="afop-stat-card danger">
-                    <span class="afop-stat-num"><?php echo wc_price($lost_revenue); ?></span>
+                    <span class="afop-stat-num"><?php echo wp_kses_post(wc_price($lost_revenue)); ?></span>
                     <span class="afop-stat-label"><i class="fa-solid fa-sack-dollar"></i> Potential Lost Value</span>
                 </div>
                 <div class="afop-stat-card success">
@@ -1337,7 +1368,7 @@ class AFOP_Admin {
                                     <?php endif; ?>
                                     <div class="afop-quick-contact" style="margin-top: 6px;">
                                         <a href="tel:<?php echo esc_attr($item->phone); ?>" class="button button-small"><i class="fa-solid fa-phone"></i> Call</a>
-                                        <a href="https://wa.me/<?php echo esc_attr($wa_num); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="button button-small afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+                                        <a href="https://wa.me/<?php echo esc_attr($wa_num); ?>?text=<?php echo esc_attr($wa_msg); ?>" target="_blank" class="button button-small afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
                                     </div>
                                 </td>
                                 <td>
@@ -1365,11 +1396,11 @@ class AFOP_Admin {
                                         <em>Cart empty</em>
                                     <?php endif; ?>
                                 </td>
-                                <td><strong><?php echo wc_price($item->cart_total); ?></strong></td>
-                                <td><small><?php echo human_time_diff(strtotime($item->updated_at), current_time('timestamp')); ?> ago</small></td>
+                                <td><strong><?php echo wp_kses_post(wc_price($item->cart_total)); ?></strong></td>
+                                <td><small><?php echo esc_html(human_time_diff(strtotime($item->updated_at), current_time('timestamp'))); ?> ago</small></td>
                                 <td>
                                     <span class="afop-badge-status status-<?php echo esc_attr($item->status); ?>">
-                                        <?php echo ucfirst($item->status); ?>
+                                        <?php echo esc_html(ucfirst($item->status)); ?>
                                     </span>
                                 </td>
                                 <td>
@@ -1395,18 +1426,17 @@ class AFOP_Admin {
         global $wpdb;
         $table = $wpdb->prefix . 'afop_blocklist';
 
-        $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
-        $type_filter = isset($_GET['type_filter']) ? sanitize_text_field($_GET['type_filter']) : 'all';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation/search; menu capability controls access, mutations have nonces.
+        $search = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin navigation/search; menu capability controls access, mutations have nonces.
+        $type_filter = isset($_GET['type_filter']) ? sanitize_text_field(wp_unslash($_GET['type_filter'])) : 'all';
 
-        $where = "WHERE 1=1";
-        if ($type_filter !== 'all') {
-            $where .= $wpdb->prepare(" AND type = %s", $type_filter);
-        }
-        if (!empty($search)) {
-            $where .= $wpdb->prepare(" AND (value LIKE %s OR reason LIKE %s)", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%');
-        }
-
-        $items = $wpdb->get_results("SELECT * FROM {$table} {$where} ORDER BY updated_at DESC LIMIT 150");
+        $like = '%' . $wpdb->esc_like($search) . '%';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Prepared operations on plugin-owned recovery/blocklist tables require current records and counts after admin or checkout writes.
+        $items = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM %i WHERE (%s = 'all' OR type = %s) AND (%s = '' OR value LIKE %s OR reason LIKE %s) ORDER BY updated_at DESC LIMIT 150", $table,
+            $type_filter, $type_filter, $search, $like, $like
+        ));
 
         $export_url = wp_nonce_url(admin_url('admin-post.php?action=afop_export_blocklist_csv'), 'afop_export_blocklist_nonce');
         ?>
@@ -1533,7 +1563,7 @@ class AFOP_Admin {
                                 <td><?php echo esc_html($item->reason ?: 'No reason given'); ?></td>
                                 <td>
                                     <span class="afop-badge-status status-<?php echo esc_attr($item->status); ?>">
-                                        <?php echo ucfirst($item->status); ?>
+                                        <?php echo esc_html(ucfirst($item->status)); ?>
                                     </span>
                                 </td>
                                 <td><small><?php echo esc_html(date_i18n('M j, Y H:i', strtotime($item->created_at))); ?></small></td>

@@ -10,8 +10,9 @@
         return;
     }
 
+    function escapeHtml(value) { return $('<div>').text(String(value == null ? '' : value)).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
     var AFOP = {
-        sessionKey: 'afop_' + Math.random().toString(36).substring(2, 15),
         repeatConfirmed: false,
         leadCaptured: false,
         typingTimer: null,
@@ -19,7 +20,7 @@
 
         init: function () {
             this.bindEvents();
-            this.checkClientBlockedOnLoad();
+            if (!afop_data.is_blocks_checkout) this.checkClientBlockedOnLoad();
         },
 
         bindEvents: function () {
@@ -32,9 +33,15 @@
                 }
             });
 
+            if (afop_data.is_blocks_checkout) return;
+
             // Live Incomplete Order & Phone Watcher
             $(document).on('input keyup change', '#billing_phone, input[name*="phone"]', function () {
                 self.handlePhoneTyping($(this).val());
+            });
+
+            $(document).on('change', '#afop-recovery-consent', function () {
+                if (this.checked) self.handlePhoneTyping(self.getPhoneValue());
             });
 
             // Checkout Form Submission Interception
@@ -45,7 +52,7 @@
             // Custom place order button clicks (CartFlows / Gutenberg / 1-step checkouts)
             $(document).on('click', '#place_order, .wc-block-checkout__actions_row button', function (e) {
                 var phoneVal = self.getPhoneValue();
-                if (phoneVal && !self.repeatConfirmed) {
+                if (afop_data.enable_bd_validation === 'yes' && phoneVal && !self.repeatConfirmed) {
                     var validation = self.validateBDPhone(phoneVal);
                     if (!validation.valid) {
                         e.preventDefault();
@@ -88,6 +95,7 @@
             if (!/^01[3-9]\d{8}$/.test(norm)) {
                 return { valid: false, reason: 'সঠিক অপারেটর নম্বর লিখুন (013-019)।' };
             }
+            if (afop_data.strict_fake_patterns !== 'yes') return { valid: true, normalized: norm };
             // Obvious dummy patterns
             var dummyPatterns = [
                 '01234567890', '01987654321', '01712345678', '01812345678', '01912345678',
@@ -98,7 +106,7 @@
                 return { valid: false, reason: 'টেস্ট বা ডামি নম্বর গ্রহণযোগ্য নয়।' };
             }
             var suffix = norm.substring(3);
-            if (/^(\d)\1{7}$/.test(suffix)) {
+            if (/(\d)\1{5,}/.test(suffix) || ['12345678','87654321','01234567','76543210'].indexOf(suffix) !== -1) {
                 return { valid: false, reason: 'সব সংখ্যা একই এমন ডামি নম্বর দেওয়া যাবে না।' };
             }
             return { valid: true, normalized: norm };
@@ -121,6 +129,7 @@
         },
 
         captureIncompleteOrder: function (phone) {
+            if (!$('#afop-recovery-consent').is(':checked')) return;
             var name = $.trim($('#billing_first_name').val() + ' ' + ($('#billing_last_name').val() || ''));
             var email = $('#billing_email').val() || '';
             var address = $('#billing_address_1').val() || '';
@@ -137,7 +146,7 @@
                     email: email,
                     address: address,
                     city: city,
-                    session_key: this.sessionKey
+                    capture_consent: 'yes'
                 },
                 success: function (res) {
                     // Captured silently
@@ -233,7 +242,7 @@
             var title = afop_data.i18n.invalid_phone_title || 'ভুল মোবাইল নম্বর!';
             var msg = afop_data.i18n.invalid_phone_msg || 'আপনার নম্বরটি ভুল। দয়া করে সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর লিখুন।';
 
-            var actionsHtml = '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-modal-dismiss"><i class="fa-solid fa-check"></i> ' + (afop_data.i18n.ok_btn || 'ঠিক আছে') + '</button>';
+            var actionsHtml = '<button type="button" class="afop-btn afop-btn-primary" id="afop-btn-modal-dismiss"><i class="fa-solid fa-check"></i> ' + escapeHtml(afop_data.i18n.ok_btn || 'ঠিক আছে') + '</button>';
 
             this.showModal({
                 iconClass: 'afop-icon-danger',
@@ -258,7 +267,7 @@
 
             var actionsHtml = '';
             if (waLink && waLink !== '#') {
-                actionsHtml += '<a href="' + waLink + '" target="_blank" class="afop-btn afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> ' + waText + '</a>';
+                actionsHtml += '<a href="' + escapeHtml(waLink) + '" target="_blank" class="afop-btn afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> ' + escapeHtml(waText) + '</a>';
             }
             actionsHtml += '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-modal-dismiss"><i class="fa-solid fa-xmark"></i> বন্ধ করুন</button>';
 
@@ -281,9 +290,9 @@
 
             var actionsHtml = '';
             if (waLink && waLink !== '#') {
-                actionsHtml += '<a href="' + waLink + '" target="_blank" class="afop-btn afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> ' + waBtnText + '</a>';
+                actionsHtml += '<a href="' + escapeHtml(waLink) + '" target="_blank" class="afop-btn afop-btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> ' + escapeHtml(waBtnText) + '</a>';
             }
-            actionsHtml += '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-modal-dismiss"><i class="fa-solid fa-xmark"></i> ' + closeText + '</button>';
+            actionsHtml += '<button type="button" class="afop-btn afop-btn-cancel" id="afop-btn-modal-dismiss"><i class="fa-solid fa-xmark"></i> ' + escapeHtml(closeText) + '</button>';
 
             this.showModal({
                 iconClass: 'afop-icon-warning',
@@ -294,6 +303,8 @@
             });
         }
     };
+
+    window.afopFrontend = AFOP;
 
     $(document).ready(function () {
         AFOP.init();

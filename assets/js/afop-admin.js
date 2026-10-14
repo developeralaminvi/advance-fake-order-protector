@@ -5,6 +5,9 @@
 
 (function ($) {
     'use strict';
+    function escapeHtml(value) { return $('<div>').text(String(value == null ? '' : value)).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function safeUrl(value) { try { var url = new URL(value, window.location.href); return /^https?:$/.test(url.protocol) ? escapeHtml(url.href) : '#'; } catch (e) { return '#'; } }
+
 
     if (typeof afop_admin_data === 'undefined') {
         return;
@@ -207,9 +210,9 @@
                     success: function (res) {
                         $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Test Courier API Connection');
                         if (res.success) {
-                            $res.html('<span style="color: #16a34a; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> ' + res.data.message + '</span>');
+                            $res.html('<span style="color: #16a34a; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> ' + escapeHtml(res.data.message) + '</span>');
                         } else {
-                            $res.html('<span style="color: #dc2626; font-weight: 600;"><i class="fa-solid fa-circle-xmark"></i> ' + res.data.message + '</span>');
+                            $res.html('<span style="color: #dc2626; font-weight: 600;"><i class="fa-solid fa-circle-xmark"></i> ' + escapeHtml(res.data.message) + '</span>');
                         }
                     },
                     error: function () {
@@ -334,11 +337,11 @@
                     contentType: false,
                     success: function (res) {
                         if (res.success) {
-                            $status.html('<span style="color: #16a34a;"><i class="fa-solid fa-check"></i> ' + res.data.message + '</span>');
+                            $status.html('<span style="color: #16a34a;"><i class="fa-solid fa-check"></i> ' + escapeHtml(res.data.message) + '</span>');
                             self.showToast(res.data.message);
                             setTimeout(function () { location.reload(); }, 900);
                         } else {
-                            $status.html('<span style="color: #dc2626;">' + res.data.message + '</span>');
+                            $status.html('<span style="color: #dc2626;">' + escapeHtml(res.data.message) + '</span>');
                         }
                     }
                 });
@@ -591,9 +594,9 @@
             }
 
             // Metrics Counts
-            $('#afop-delivered-count').text(data.delivered || 0);
-            $('#afop-returned-count').text(data.returned || 0);
-            $('#afop-total-count').text(data.total_orders || 0);
+            $('#afop-delivered-count').text(Number(data.delivered) || 0);
+            $('#afop-returned-count').text(Number(data.returned) || 0);
+            $('#afop-total-count').text(Number(data.total_orders) || 0);
 
             // Demo Notice
             if (data.is_demo && data.demo_notice) {
@@ -618,18 +621,18 @@
                         var rateText = c.success_rate ? c.success_rate + '%' : 'Rating';
 
                         var rowHtml = '<tr>' +
-                            '<td><strong>' + c.name + '</strong> <small style="color: #64748b;">(Rating)</small></td>' +
-                            '<td colspan="3"><span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; ' + badgeStyle + '"><i class="fa-solid ' + iconClass + '"></i> ' + ratingText + '</span></td>' +
-                            '<td><strong>' + rateText + '</strong></td>' +
+                            '<td><strong>' + escapeHtml(c.name) + '</strong> <small style="color: #64748b;">(Rating)</small></td>' +
+                            '<td colspan="3"><span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; ' + badgeStyle + '"><i class="fa-solid ' + iconClass + '"></i> ' + escapeHtml(ratingText) + '</span></td>' +
+                            '<td><strong>' + escapeHtml(rateText) + '</strong></td>' +
                             '</tr>';
                         $tbody.append(rowHtml);
                     } else {
                         var successPercent = (c.total > 0) ? Math.round((c.delivered / c.total) * 100) : 0;
                         var rowHtml = '<tr>' +
-                            '<td><strong>' + c.name + '</strong></td>' +
-                            '<td>' + c.total + '</td>' +
-                            '<td><span style="color: #16a34a; font-weight: 600;">' + c.delivered + '</span></td>' +
-                            '<td><span style="color: #dc2626; font-weight: 600;">' + c.returned + '</span></td>' +
+                            '<td><strong>' + escapeHtml(c.name) + '</strong></td>' +
+                            '<td>' + escapeHtml(c.total) + '</td>' +
+                            '<td><span style="color: #16a34a; font-weight: 600;">' + escapeHtml(c.delivered) + '</span></td>' +
+                            '<td><span style="color: #dc2626; font-weight: 600;">' + escapeHtml(c.returned) + '</span></td>' +
                             '<td><strong>' + successPercent + '%</strong></td>' +
                             '</tr>';
                         $tbody.append(rowHtml);
@@ -661,7 +664,7 @@
                     $miniCard.find('.afop-mini-rate-text').text(Math.round(rate) + '% Delivery');
                     $miniCard.find('.afop-mini-risk-tag').removeClass('tag-safe tag-medium tag-high tag-neutral').addClass('tag-' + safeRisk).text(safeTag);
                     $miniCard.find('.afop-mini-bar-fill').removeClass('fill-safe fill-medium fill-high fill-neutral').addClass('fill-' + safeRisk).css('width', Math.round(rate) + '%');
-                    $miniCard.find('.afop-mini-graph-sub').html('<span><i class="fa-solid fa-check"></i> ' + (data.delivered || 0) + '</span> <span><i class="fa-solid fa-rotate-left"></i> ' + (data.returned || 0) + '</span> <span>(' + (data.total_orders || 0) + ')</span>');
+                    $miniCard.find('.afop-mini-graph-sub').html('<span><i class="fa-solid fa-check"></i> ' + (Number(data.delivered) || 0) + '</span> <span><i class="fa-solid fa-rotate-left"></i> ' + (Number(data.returned) || 0) + '</span> <span>(' + (Number(data.total_orders) || 0) + ')</span>');
                 }
             }
         },
@@ -691,7 +694,7 @@
                     $loading.hide();
                     if (res.success && res.data) {
                         $('#afop-cust-orders-count-val').text(res.data.order_count || 0);
-                        $('#afop-cust-orders-spent-val').html(res.data.formatted_spent || '৳ 0');
+                        $('#afop-cust-orders-spent-val').text(res.data.formatted_spent || '0');
 
                         var $tbody = $('#afop-cust-orders-tbody');
                         $tbody.empty();
@@ -710,19 +713,19 @@
                                 var itemsHtml = '';
                                 if (o.items && o.items.length > 0) {
                                     itemsHtml = $.map(o.items, function (it) {
-                                        return '<span style="display: block; font-size: 11.5px; color: #334155;">&bull; ' + it.name + ' <strong>(&times;' + it.qty + ')</strong></span>';
+                                        return '<span style="display: block; font-size: 11.5px; color: #334155;">&bull; ' + escapeHtml(it.name) + ' <strong>(&times;' + escapeHtml(it.qty) + ')</strong></span>';
                                     }).join('');
                                 } else {
                                     itemsHtml = '<span style="color: #94a3b8; font-size: 11px;">No details</span>';
                                 }
 
                                 var rowHtml = '<tr>' +
-                                    '<td><strong>#' + o.number + '</strong></td>' +
-                                    '<td><span style="font-size: 11.5px; color: #64748b;">' + o.date + '</span></td>' +
-                                    '<td><span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; ' + statusClass + '">' + o.status_name + '</span></td>' +
+                                    '<td><strong>#' + escapeHtml(o.number) + '</strong></td>' +
+                                    '<td><span style="font-size: 11.5px; color: #64748b;">' + escapeHtml(o.date) + '</span></td>' +
+                                    '<td><span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; ' + statusClass + '">' + escapeHtml(o.status_name) + '</span></td>' +
                                     '<td>' + itemsHtml + '</td>' +
-                                    '<td><strong>' + o.total + '</strong></td>' +
-                                    '<td><a href="' + o.edit_url + '" target="_blank" class="button button-small"><i class="fa-solid fa-arrow-up-right-from-square"></i> View</a></td>' +
+                                    '<td><strong>' + escapeHtml(Number(o.raw_total) || 0) + '</strong></td>' +
+                                    '<td><a href="' + safeUrl(o.edit_url) + '" target="_blank" class="button button-small"><i class="fa-solid fa-arrow-up-right-from-square"></i> View</a></td>' +
                                     '</tr>';
                                 $tbody.append(rowHtml);
                             });
@@ -751,7 +754,7 @@
             }
 
             var icon = (type === 'error') ? '<i class="fa-solid fa-circle-xmark"></i>' : '<i class="fa-solid fa-circle-check"></i>';
-            var $toast = $('<div class="afop-toast">' + icon + ' <span>' + msg + '</span></div>');
+            var $toast = $('<div class="afop-toast">' + icon + ' <span>' + escapeHtml(msg) + '</span></div>');
 
             if (type === 'error') {
                 $toast.css('background', '#dc2626');

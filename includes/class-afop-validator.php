@@ -90,7 +90,7 @@ class AFOP_Validator {
         }
 
         // Strict fake pattern checking
-        if (get_option('afop_strict_fake_patterns', 'yes') === 'yes') {
+        if (get_option('afop_strict_fake_patterns', 'no') === 'yes') {
             $fake_check = self::is_fake_pattern($normalized);
             if ($fake_check['is_fake']) {
                 return array(
@@ -217,6 +217,7 @@ class AFOP_Validator {
             return;
         }
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before invoking woocommerce_checkout_process.
         $billing_phone = isset($_POST['billing_phone']) ? sanitize_text_field(wp_unslash($_POST['billing_phone'])) : '';
 
         if (empty($billing_phone)) {
