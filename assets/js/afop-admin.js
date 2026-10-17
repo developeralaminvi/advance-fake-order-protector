@@ -191,13 +191,13 @@
                 });
             });
 
-            // 3. Test Courier API Connection (Settings Tab)
+            // 3. Check Saved Credentials (Settings Tab)
             $(document).on('click', '#afop-test-api-btn', function (e) {
                 e.preventDefault();
                 var $btn = $(this);
                 var $res = $('#afop-test-api-result');
 
-                $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Testing connection...');
+                $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Checking credentials...');
                 $res.html('<span style="color: #64748b;">Checking API server...</span>');
 
                 $.ajax({
@@ -208,7 +208,7 @@
                         nonce: afop_admin_data.nonce
                     },
                     success: function (res) {
-                        $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Test Courier API Connection');
+                        $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Check Saved Credentials');
                         if (res.success) {
                             $res.html('<span style="color: #16a34a; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> ' + escapeHtml(res.data.message) + '</span>');
                         } else {
@@ -216,7 +216,7 @@
                         }
                     },
                     error: function () {
-                        $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Test Courier API Connection');
+                        $btn.prop('disabled', false).html('<i class="fa-solid fa-plug"></i> Check Saved Credentials');
                         $res.html('<span style="color: #dc2626;"><i class="fa-solid fa-triangle-exclamation"></i> Server connection error.</span>');
                     }
                 });

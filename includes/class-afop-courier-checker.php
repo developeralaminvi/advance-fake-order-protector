@@ -1,7 +1,7 @@
 <?php
 /**
  * Courier Delivery Ratio & Fraud Checker Engine
- * Supports BDCourier, Steadfast, and FraudBD (https://fraudbd.com/api-documentation) API integrations.
+ * Supports optional BDCourier, Steadfast and Pathao API integrations.
  * Calculates Delivery vs Return ratio, Pathao Rating evaluations, Risk Score, and Multi-Courier breakdowns.
  */
 
@@ -26,9 +26,8 @@ class AFOP_Courier_Checker {
     public static function is_provider_configured($provider) {
         if (get_option('afop_courier_consent', 'no') !== 'yes') { return false; }
         if ($provider === 'steadfast') {
-            return !empty(trim(get_option('afop_steadfast_api_key', '')));
-        } elseif ($provider === 'fraudbd') {
-            return !empty(trim(get_option('afop_fraudbd_api_key', '')));
+            return !empty(trim(get_option('afop_steadfast_api_key', ''))) && !empty(trim(get_option('afop_steadfast_secret_key', '')));
+
         } elseif ($provider === 'pathao') {
             return !empty(trim(get_option('afop_pathao_client_id', ''))) && !empty(trim(get_option('afop_pathao_client_secret', '')));
         } elseif ($provider === 'bdcourier') {
@@ -45,7 +44,6 @@ class AFOP_Courier_Checker {
     public static function has_any_api_configured() {
         return self::is_provider_configured('bdcourier') ||
                self::is_provider_configured('steadfast') ||
-               self::is_provider_configured('fraudbd') ||
                self::is_provider_configured('pathao');
     }
 
@@ -63,6 +61,8 @@ class AFOP_Courier_Checker {
         }
 
         $provider = get_option('afop_courier_provider', 'bdcourier');
+
+        if (!in_array($provider, array('bdcourier', 'steadfast', 'pathao'), true)) { return null; }
 
         // Check local DB cache first (ultra-fast indexed query)
         $cached = self::get_cached_stats($normalized_phone, $provider);
@@ -112,6 +112,10 @@ class AFOP_Courier_Checker {
             $provider = get_option('afop_courier_provider', 'bdcourier');
         }
 
+        if (!in_array($provider, array('bdcourier', 'steadfast', 'pathao'), true)) {
+            return array('success' => false, 'no_api' => true, 'has_api' => false, 'message' => __('Choose a supported courier provider in settings.', 'advance-fake-order-protector'));
+        }
+
         // Check if API key is configured for this provider
         if (!self::is_provider_configured($provider)) {
             return array(
@@ -143,8 +147,7 @@ class AFOP_Courier_Checker {
         $stats = null;
         if ($provider === 'steadfast') {
             $stats = self::fetch_steadfast_stats($normalized_phone);
-        } elseif ($provider === 'fraudbd') {
-            $stats = self::fetch_fraudbd_stats($normalized_phone);
+
         } elseif ($provider === 'pathao') {
             $stats = self::fetch_pathao_stats($normalized_phone);
         } else {
@@ -388,179 +391,6 @@ class AFOP_Courier_Checker {
     }
 
     /**
-     * Fetch from FraudBD API (https://fraudbd.com/api/check-courier-info)
-     */
-    private static function fetch_fraudbd_stats($phone) {
-        $api_key = trim(get_option('afop_fraudbd_api_key', ''));
-
-        if (empty($api_key)) {
-            return array(
-                'success' => false,
-                'message' => __('FraudBD API Key is missing. Please enter it in Settings > Courier API.', 'advance-fake-order-protector')
-            );
-        }
-
-        // Ensure 11-digit clean phone number (e.g. 017XXXXXXXX)
-        $clean_phone = preg_replace('/[^0-9]/', '', $phone);
-        if (substr($clean_phone, 0, 2) === '88' && strlen($clean_phone) === 13) {
-            $clean_phone = substr($clean_phone, 2);
-        }
-
-        $endpoint = 'https://fraudbd.com/api/check-courier-info';
-
-        $response = wp_safe_remote_post($endpoint, array(
-            'headers' => array(
-                'api_key'      => $api_key,
-                'Content-Type' => 'application/json',
-                'Accept'       => 'application/json'
-            ),
-            'body'    => wp_json_encode(array(
-                'phone_number' => $clean_phone
-            )),
-            'timeout' => 20, 'redirection' => 0
-        ));
-
-        if (is_wp_error($response)) {
-            return array(
-                'success' => false,
-                'message' => $response->get_error_message()
-            );
-        }
-
-        $code = wp_remote_retrieve_response_code($response);
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-
-        if ($code === 401 || $code === 403) {
-            return array(
-                'success' => false,
-                'message' => __('FraudBD: Unauthorized. Please check your API Key.', 'advance-fake-order-protector')
-            );
-        }
-
-        if ($code === 429) {
-            return array(
-                'success' => false,
-                'message' => __('FraudBD: Rate limit exceeded (60 requests/min). Please try again shortly.', 'advance-fake-order-protector')
-            );
-        }
-
-        if (empty($body) || (isset($body['status']) && $body['status'] === false)) {
-            return array(
-                'success' => false,
-                'message' => isset($body['message']) ? $body['message'] : __('FraudBD API error response.', 'advance-fake-order-protector')
-            );
-        }
-
-        return self::format_fraudbd_response($clean_phone, $body);
-    }
-
-    /**
-     * Parse and standardize FraudBD API response
-     * Handles Pathao customer ratings (excellent_customer, risky_customer, etc.) and traditional delivery stats
-     */
-    private static function format_fraudbd_response($phone, $raw) {
-        $data = isset($raw['data']) ? $raw['data'] : array();
-        $total_summary = isset($data['totalSummary']) ? $data['totalSummary'] : array();
-        $summaries = isset($data['Summaries']) && is_array($data['Summaries']) ? $data['Summaries'] : array();
-
-        $total_orders = isset($total_summary['total']) ? intval($total_summary['total']) : 0;
-        $delivered    = isset($total_summary['success']) ? intval($total_summary['success']) : 0;
-        $returned     = isset($total_summary['cancel']) ? intval($total_summary['cancel']) : 0;
-        $delivery_rate= isset($total_summary['successRate']) ? floatval($total_summary['successRate']) : 0;
-        $return_rate  = isset($total_summary['cancelRate']) ? floatval($total_summary['cancelRate']) : 0;
-
-        $couriers = array();
-        $has_high_risk = false;
-        $rating_notes = array();
-
-        foreach ($summaries as $courier_name => $c_stat) {
-            $data_type = isset($c_stat['data_type']) ? $c_stat['data_type'] : 'delivery';
-            $logo = isset($c_stat['logo']) ? $c_stat['logo'] : '';
-
-            if ($data_type === 'rating') {
-                $rating = isset($c_stat['customer_rating']) ? $c_stat['customer_rating'] : 'new_customer';
-                $risk   = isset($c_stat['risk_level']) ? $c_stat['risk_level'] : 'low';
-                $msg    = isset($c_stat['message']) ? $c_stat['message'] : '';
-                $rate   = isset($c_stat['success_rate']) ? intval($c_stat['success_rate']) : 0;
-
-                if ($risk === 'high' || $risk === 'very_high' || $rating === 'risky_customer') {
-                    $has_high_risk = true;
-                }
-
-                $rating_label = ucwords(str_replace('_', ' ', $rating));
-                $rating_notes[] = $courier_name . ': ' . ($msg ?: $rating_label);
-
-                $couriers[] = array(
-                    'name'            => $courier_name,
-                    'logo'            => $logo,
-                    'data_type'       => 'rating',
-                    'customer_rating' => $rating,
-                    'rating_label'    => $rating_label,
-                    'risk_level'      => $risk,
-                    'rating_message'  => $msg,
-                    'success_rate'    => $rate,
-                    'total'           => 0,
-                    'delivered'       => 0,
-                    'returned'        => 0
-                );
-            } else {
-                $c_total = isset($c_stat['total']) ? intval($c_stat['total']) : 0;
-                $c_success = isset($c_stat['success']) ? intval($c_stat['success']) : 0;
-                $c_cancel = isset($c_stat['cancel']) ? intval($c_stat['cancel']) : 0;
-
-                $couriers[] = array(
-                    'name'      => $courier_name,
-                    'logo'      => $logo,
-                    'data_type' => 'delivery',
-                    'total'     => $c_total,
-                    'delivered' => $c_success,
-                    'returned'  => $c_cancel
-                );
-            }
-        }
-
-        // If totalSummary total is 0, calculate sum from delivery couriers if available
-        if ($total_orders == 0 && !empty($couriers)) {
-            foreach ($couriers as $c) {
-                if ($c['data_type'] === 'delivery') {
-                    $total_orders += $c['total'];
-                    $delivered += $c['delivered'];
-                    $returned += $c['returned'];
-                }
-            }
-            if ($total_orders > 0) {
-                $delivery_rate = round(($delivered / $total_orders) * 100, 1);
-                $return_rate   = round(($returned / $total_orders) * 100, 1);
-            }
-        }
-
-        // Determine overall risk score
-        $risk_level = 'safe';
-        if ($has_high_risk || $return_rate >= 30 || ($total_orders > 2 && $delivery_rate < 65)) {
-            $risk_level = 'high';
-        } elseif ($return_rate >= 15 || ($total_orders > 2 && $delivery_rate < 80)) {
-            $risk_level = 'medium';
-        }
-
-        return array(
-            'success'        => true,
-            'phone'          => $phone,
-            'provider'       => 'FraudBD API',
-            'provider_key'   => 'fraudbd',
-            'total_orders'   => $total_orders,
-            'delivered'      => $delivered,
-            'returned'       => $returned,
-            'cancelled'      => $returned,
-            'delivery_rate'  => $delivery_rate,
-            'return_rate'    => $return_rate,
-            'risk_level'     => $risk_level,
-            'couriers'       => $couriers,
-            'rating_notes'   => $rating_notes,
-            'raw_data'       => $raw
-        );
-    }
-
-    /**
      * Fetch from BDCourier API (api.bdcourier.com)
      */
     private static function fetch_bdcourier_stats($phone) {
@@ -789,11 +619,10 @@ class AFOP_Courier_Checker {
         }
 
         if ($provider === 'all' || empty($provider)) {
-            // Return all 4 providers for multi-tab rendering
+            // Return all 3 providers for multi-tab rendering
             $providers_data = array(
                 'bdcourier' => self::get_delivery_stats($phone, $force, 'bdcourier'),
                 'steadfast' => self::get_delivery_stats($phone, $force, 'steadfast'),
-                'fraudbd'   => self::get_delivery_stats($phone, $force, 'fraudbd'),
                 'pathao'    => self::get_delivery_stats($phone, $force, 'pathao')
             );
 
@@ -802,12 +631,11 @@ class AFOP_Courier_Checker {
                 'phone'             => AFOP_Validator::normalize_phone($phone),
                 'is_blocked'        => AFOP_Blocklist::is_blocked('phone', $phone),
                 'providers'         => $providers_data,
-                'active_provider'   => get_option('afop_courier_provider', 'bdcourier'),
+                'active_provider'   => in_array(get_option('afop_courier_provider', 'bdcourier'), array('bdcourier', 'steadfast', 'pathao'), true) ? get_option('afop_courier_provider', 'bdcourier') : 'bdcourier',
                 'has_any_api'       => self::has_any_api_configured(),
                 'configured_status' => array(
                     'bdcourier' => self::is_provider_configured('bdcourier'),
                     'steadfast' => self::is_provider_configured('steadfast'),
-                    'fraudbd'   => self::is_provider_configured('fraudbd'),
                     'pathao'    => self::is_provider_configured('pathao')
                 )
             ));
@@ -821,7 +649,7 @@ class AFOP_Courier_Checker {
     }
 
     /**
-     * Admin AJAX to test courier API connection
+     * Admin AJAX to check saved credential fields locally, without contacting a provider.
      */
     public function ajax_test_courier_api() {
         check_ajax_referer('afop_admin_nonce', 'nonce');
@@ -834,60 +662,12 @@ class AFOP_Courier_Checker {
             wp_send_json_error(array('message' => 'Enable external courier requests in settings first.'));
         }
         $active_provider = get_option('afop_courier_provider', 'bdcourier');
-        $test_phone = '01712345678';
-
-        if ($active_provider === 'pathao') {
-            $token = self::get_pathao_access_token();
-            if (is_wp_error($token)) {
-                wp_send_json_error(array('message' => $token->get_error_message()));
-            } else {
-                wp_send_json_success(array('message' => __('Pathao Courier API Connected Successfully! Access Token issued.', 'advance-fake-order-protector')));
-            }
-        } elseif ($active_provider === 'fraudbd') {
-            $api_key = trim(get_option('afop_fraudbd_api_key', ''));
-            if (empty($api_key)) {
-                wp_send_json_error(array('message' => __('FraudBD API Key is missing. Please enter your API key first.', 'advance-fake-order-protector')));
-            }
-
-            // Perform direct ping to FraudBD check-courier-info endpoint
-            $endpoint = 'https://fraudbd.com/api/check-courier-info';
-            $response = wp_safe_remote_post($endpoint, array(
-                'headers' => array(
-                    'api_key'      => $api_key,
-                    'Content-Type' => 'application/json',
-                    'Accept'       => 'application/json'
-                ),
-                'body'    => wp_json_encode(array('phone_number' => $test_phone)),
-                'timeout' => 15,
-                'redirection' => 0
-            ));
-
-            if (is_wp_error($response)) {
-                wp_send_json_error(array('message' => 'FraudBD Connection Error: ' . $response->get_error_message()));
-            }
-
-            $code = wp_remote_retrieve_response_code($response);
-            $body = json_decode(wp_remote_retrieve_body($response), true);
-
-            if ($code === 200 && isset($body['status']) && $body['status'] === true) {
-                wp_send_json_success(array('message' => __('FraudBD API Connected Successfully! Live courier intelligence is active.', 'advance-fake-order-protector')));
-            } elseif ($code === 401 || $code === 403) {
-                wp_send_json_error(array('message' => __('FraudBD Error: Invalid or unauthorized API Key.', 'advance-fake-order-protector')));
-            } elseif ($code === 429) {
-                wp_send_json_error(array('message' => __('FraudBD Error: Rate limit reached. Try again shortly.', 'advance-fake-order-protector')));
-            } else {
-                $err_msg = isset($body['message']) ? $body['message'] : ('HTTP ' . $code . ' Response');
-                wp_send_json_error(array('message' => 'FraudBD Error: ' . $err_msg));
-            }
-        } else {
-            $stats = self::get_delivery_stats($test_phone, true, $active_provider);
-
-            if (!empty($stats['success']) && empty($stats['is_demo'])) {
-                /* translators: Numeric placeholders are counts; string placeholders identify the provider, customer or blocklist item. */
-                wp_send_json_success(array('message' => sprintf(__('%s Connected Successfully! Live courier data is active.', 'advance-fake-order-protector'), ucfirst($active_provider))));
-            } else {
-                wp_send_json_error(array('message' => isset($stats['message']) ? $stats['message'] : __('Connection failed. Please verify your API Key and Secret.', 'advance-fake-order-protector')));
-            }
+        if (!self::is_provider_configured($active_provider)) {
+            wp_send_json_error(array('message' => __('Select a supported provider and save all required credentials first.', 'advance-fake-order-protector')));
         }
+        if ($active_provider === 'pathao' && (empty(trim(get_option('afop_pathao_username', ''))) || empty(trim(get_option('afop_pathao_password', ''))))) {
+            wp_send_json_error(array('message' => __('Save the Pathao merchant username and password first.', 'advance-fake-order-protector')));
+        }
+        wp_send_json_success(array('message' => __('Required credentials are saved. No external request was sent and the credentials have not been authenticated. Use an authorized order lookup to verify live access.', 'advance-fake-order-protector')));
     }
 }

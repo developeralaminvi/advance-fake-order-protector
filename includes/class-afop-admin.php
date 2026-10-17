@@ -653,9 +653,6 @@ class AFOP_Admin {
                     <button type="button" class="afop-courier-tab-btn" data-provider="steadfast">
                         <i class="fa-solid fa-bolt"></i> Steadfast
                     </button>
-                    <button type="button" class="afop-courier-tab-btn" data-provider="fraudbd">
-                        <i class="fa-solid fa-shield-halved"></i> FraudBD
-                    </button>
                     <button type="button" class="afop-courier-tab-btn" data-provider="pathao">
                         <i class="fa-solid fa-motorcycle"></i> Pathao
                     </button>
@@ -845,7 +842,6 @@ class AFOP_Admin {
             'afop_bdcourier_api_key'        => 'text',
             'afop_steadfast_api_key'        => 'text',
             'afop_steadfast_secret_key'     => 'text',
-            'afop_fraudbd_api_key'          => 'text',
             'afop_pathao_base_url'          => 'text',
             'afop_pathao_client_id'         => 'text',
             'afop_pathao_client_secret'     => 'text',
@@ -859,7 +855,7 @@ class AFOP_Admin {
             'general' => array('afop_whatsapp_number', 'afop_whatsapp_message', 'afop_whatsapp_btn_text', 'afop_enable_blocklist', 'afop_blocked_title', 'afop_blocked_msg', 'afop_enable_incomplete_capture', 'afop_incomplete_retention_days'),
             'validation' => array('afop_enable_bd_validation', 'afop_strict_fake_patterns', 'afop_invalid_phone_title', 'afop_invalid_phone_msg'),
             'repeat' => array('afop_enable_repeat_check', 'afop_repeat_time_limit', 'afop_repeat_order_title', 'afop_repeat_order_msg', 'afop_repeat_whatsapp_btn', 'afop_repeat_whatsapp_msg'),
-            'courier' => array('afop_courier_consent', 'afop_courier_provider', 'afop_courier_cache_hours', 'afop_bdcourier_api_key', 'afop_steadfast_api_key', 'afop_steadfast_secret_key', 'afop_fraudbd_api_key', 'afop_pathao_base_url', 'afop_pathao_client_id', 'afop_pathao_client_secret', 'afop_pathao_username', 'afop_pathao_password'),
+            'courier' => array('afop_courier_consent', 'afop_courier_provider', 'afop_courier_cache_hours', 'afop_bdcourier_api_key', 'afop_steadfast_api_key', 'afop_steadfast_secret_key', 'afop_pathao_base_url', 'afop_pathao_client_id', 'afop_pathao_client_secret', 'afop_pathao_username', 'afop_pathao_password'),
         );
         if (!isset($tabs[$tab])) { return; }
         foreach ($fields as $field => $type) {
@@ -871,7 +867,7 @@ class AFOP_Admin {
                 continue;
             }
             if (strpos($field, 'afop_pathao_') === 0) { delete_option('afop_pathao_token_data'); }
-            if ($field === 'afop_courier_provider' && (!isset($_POST[$field]) || !in_array($_POST[$field], array('bdcourier', 'steadfast', 'fraudbd', 'pathao'), true))) { continue; }
+            if ($field === 'afop_courier_provider' && (!isset($_POST[$field]) || !in_array($_POST[$field], array('bdcourier', 'steadfast', 'pathao'), true))) { continue; }
 
             if ($type === 'yes_no') {
                 $val = isset($_POST[$field]) ? 'yes' : 'no';
@@ -1097,7 +1093,19 @@ class AFOP_Admin {
                         <h3><i class="fa-solid fa-truck-fast"></i> Courier API & Fraud Ratio Configuration</h3>
                         <p class="description" style="margin-bottom: 20px;">এখানে প্রতিটি কুরিয়ার সার্ভিসের API সেটিংস আলাদা আলাদা সেকশনে সুন্দরভাবে সাজানো হয়েছে। আপনার ব্যবহৃত কুরিয়ারের ক্রেডেনশিয়াল টাইপ করে সেভ করুন।</p>
 
-                        <p><label><input type="checkbox" name="afop_courier_consent" value="yes" <?php checked(get_option('afop_courier_consent', 'no'), 'yes'); ?>> Enable external courier requests. Customer phone numbers are sent to configured providers when an administrator requests a lookup or tests a connection. Review each provider's terms and privacy policy and inform customers before enabling.</label></p>
+                        <p><label><input type="checkbox" name="afop_courier_consent" value="yes" <?php checked(get_option('afop_courier_consent', 'no'), 'yes'); ?>> Enable external courier requests. A staff lookup or refresh may send the customer's phone number to every configured provider listed below. Requests are off by default. Review the policies and inform customers before enabling.</label></p>
+                        <div class="notice notice-info inline"><p><strong>Optional external services</strong></p>
+                            <p>Opening a courier report checks all configured providers. A cached result is reused unless refreshed or expired. API credentials authenticate requests; customer names, addresses, emails and cart contents are not included in these API payloads. Pathao also receives merchant credentials when an authentication token is needed. Providers can see the store server's IP address.</p>
+                            <ul>
+                                <li><strong>BDCourier:</strong> customer phone and the merchant's own API key go to api.bdcourier.com for delivery history. <a href="https://bdcourier.com/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a> &middot; <a href="https://bdcourier.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>. Use only for genuine newly received orders awaiting verification. Do not scan old databases, recovery leads or random numbers, or resell/rebrand the service. Each merchant needs their own account and API key.</li>
+                                <li><strong>Steadfast:</strong> customer phone, API key and secret go to api.steadfast.com.bd for delivery/return history. <a href="https://steadfast.com.bd/terms-and-condition" target="_blank" rel="noopener noreferrer">Terms and Conditions</a> &middot; <a href="https://steadfast.com.bd/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</li>
+                                <li><strong>Pathao:</strong> customer phone and access token go to the selected Pathao API host for delivery ratings. Authentication sends merchant client ID, secret, username/password or refresh token. <a href="https://pathao.com/terms-of-service-merchant/" target="_blank" rel="noopener noreferrer">Merchant Terms</a> &middot; <a href="https://pathao.com/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</li>
+                            </ul>
+                            <p><strong>Check Saved Credentials</strong> only checks locally that required fields are filled in. It sends no phone number or authentication request and does not verify live API access. Provider accounts, permissions, charges and rate limits apply separately.</p>
+                        </div>
+                        <?php if (!in_array(get_option('afop_courier_provider', 'bdcourier'), array('bdcourier', 'steadfast', 'pathao'), true)): ?>
+                            <p class="notice notice-warning inline"><?php esc_html_e('The previously selected courier provider is no longer supported. Choose a supported default provider below and save settings. Credentials for a retired provider are not used.', 'advance-fake-order-protector'); ?></p>
+                        <?php endif; ?>
                         <!-- 1. General & Default Provider -->
                         <div class="afop-courier-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px;">
                             <h4 style="margin: 0 0 15px; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
@@ -1110,7 +1118,6 @@ class AFOP_Admin {
                                         <select name="afop_courier_provider" id="afop_courier_provider" class="regular-text">
                                             <option value="bdcourier" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'bdcourier'); ?>>BD Courier API (api.bdcourier.com)</option>
                                             <option value="steadfast" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'steadfast'); ?>>Steadfast Courier API</option>
-                                            <option value="fraudbd" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'fraudbd'); ?>>FraudBD API (fraudbd.com)</option>
                                             <option value="pathao" <?php selected(get_option('afop_courier_provider', 'bdcourier'), 'pathao'); ?>>Pathao Courier API (pathao.com)</option>
                                         </select>
                                         <p class="description">অর্ডার টেবিল ও মোডালে ডিফল্টভাবে যে কুরিয়ারের ডাটা দেখাবে।</p>
@@ -1124,9 +1131,9 @@ class AFOP_Admin {
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th scope="row">Test Connection</th>
+                                    <th scope="row">Credentials Check</th>
                                     <td>
-                                        <button type="button" class="button" id="afop-test-api-btn"><i class="fa-solid fa-plug"></i> Test Courier API Connection</button>
+                                        <button type="button" class="button" id="afop-test-api-btn"><i class="fa-solid fa-plug"></i> Check Saved Credentials</button>
                                         <span id="afop-test-api-result" style="margin-left: 10px;"></span>
                                     </td>
                                 </tr>
@@ -1197,23 +1204,7 @@ class AFOP_Admin {
                             </table>
                         </div>
 
-                        <!-- 4. FraudBD API -->
-                        <div class="afop-courier-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <h4 style="margin: 0 0 15px; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-shield-halved" style="color: #3b82f6;"></i> FraudBD API Settings (fraudbd.com)
-                            </h4>
-                            <table class="form-table" style="margin: 0;">
-                                <tr>
-                                    <th scope="row">FraudBD API Key</th>
-                                    <td>
-                                        <input type="password" name="afop_fraudbd_api_key" value="<?php echo esc_attr(get_option('afop_fraudbd_api_key', '')); ?>" class="large-text" placeholder="FraudBD Account থেকে প্রাপ্ত API Key">
-                                        <p class="description"><a href="https://fraudbd.com" target="_blank">fraudbd.com</a> থেকে আপনার API Key সংগ্রহ করুন (অথবা টেস্ট করার জন্য Sandbox Key ব্যবহার করতে পারেন)।</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-
-                        <!-- 5. BD Courier API -->
+                        <!-- 4. BD Courier API -->
                         <div class="afop-courier-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #10b981; border-radius: 10px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                             <h4 style="margin: 0 0 15px; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
                                 <i class="fa-solid fa-truck-fast" style="color: #10b981;"></i> BD Courier API Settings (api.bdcourier.com)

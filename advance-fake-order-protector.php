@@ -3,7 +3,7 @@
  * Plugin Name: Sarkar IT Fake Order Protector
  * Plugin URI: https://www.sarkarit.com/fake-order-protector/
  * Description: Advanced WooCommerce fake order prevention, Bangladeshi phone number validation, IP/Phone 1-click blocklist, repeat order protection with WhatsApp redirection, real-time incomplete orders capture, and multi-courier delivery ratio analytics.
- * Version: 1.9.2
+ * Version: 1.9.4
  * Author: Sarkar IT
  * Author URI: https://www.sarkarit.com/
  * Text Domain: advance-fake-order-protector
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define Plugin Constants
-define('AFOP_VERSION', '1.9.2');
+define('AFOP_VERSION', '1.9.4');
 define('AFOP_PLUGIN_FILE', __FILE__);
 define('AFOP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AFOP_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -32,11 +32,11 @@ define('AFOP_PLUGIN_BASENAME', plugin_basename(__FILE__));
 /**
  * Main Plugin Class
  */
-final class Advance_Fake_Order_Protector {
+final class AFOP_Plugin {
 
     /**
      * Single instance of the plugin
-     * @var Advance_Fake_Order_Protector
+     * @var AFOP_Plugin
      */
     private static $instance = null;
 
@@ -242,7 +242,7 @@ final class Advance_Fake_Order_Protector {
  * Initialize Plugin
  */
 function afop_get_plugin() {
-    return Advance_Fake_Order_Protector::get_instance();
+    return AFOP_Plugin::get_instance();
 }
 
 // Start execution
